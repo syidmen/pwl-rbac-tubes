@@ -1,0 +1,26 @@
+{
+  "name": "pwl-rbac-tubes",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --watch index.ts",
+    "start": "bun index.ts",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^25.7.0",
+    "prisma": "6.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@prisma/client": "6.0.0",
+    "dotenv": "^17.4.2"
+  }
+}
