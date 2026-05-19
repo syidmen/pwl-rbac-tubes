@@ -10,25 +10,55 @@ async function main() {
     "item:delete",
   ]
 
+  // Create permissions
   for (const permission of permissions) {
     await prisma.permission.upsert({
       where: { name: permission },
       update: {},
-      create: {
-        name: permission,
-      },
+      create: { name: permission },
     })
   }
 
-  await prisma.role.upsert({
-    where: { name: "admin" },
+  // Create role
+  const adminRole = await prisma.role.upsert({
+    where: { name: "Admin" },
     update: {},
-    create: {
-      name: "admin",
-    },
+    create: { name: "Admin" },
   })
 
-  console.log("Seed selesai")
+  // Assign all permissions to Admin role
+  const allPerms = await prisma.permission.findMany();
+  for (const perm of allPerms) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: { roleId: adminRole.id, permissionId: perm.id }
+      },
+      update: {},
+      create: { roleId: adminRole.id, permissionId: perm.id }
+    })
+  }
+
+  // Create User "admin@example.com" with password "password123"
+  const adminUser = await prisma.user.upsert({
+    where: { email: "admin@example.com" },
+    update: {},
+    create: {
+      username: "AdminUser",
+      email: "admin@example.com",
+      password: "$argon2id$v=19$m=65536,t=2,p=1$zXjSJt2gd6QdP+RdVpDivHi5f7AbU3bm50k3BxXnes0$PgRcRkp3V4bIyjaEsHpO0b2oqRNzhiXOtSzagI8K12o",
+    }
+  })
+
+  // Assign Admin role to User
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: { userId: adminUser.id, roleId: adminRole.id }
+    },
+    update: {},
+    create: { userId: adminUser.id, roleId: adminRole.id }
+  })
+
+  console.log("Seed selesai: Admin user dan permissions berhasil dibuat.")
 }
 
 main()
@@ -36,4 +66,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect()
   })
-  
