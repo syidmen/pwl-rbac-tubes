@@ -6,6 +6,10 @@
 
   "scripts": {
     "dev": "bun --watch src/main.ts",
+    "frontend:dev": "vite --host 0.0.0.0",
+    "frontend:build": "vite build",
+    "frontend:typecheck": "tsc --noEmit --project frontend/tsconfig.json",
+    "frontend:preview": "vite preview --host 0.0.0.0",
     "start": "bun src/main.ts",
     "typecheck": "tsc --noEmit",
 
@@ -21,7 +25,11 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^25.7.0",
-    "prisma": "6.0.0"
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "prisma": "6.0.0",
+    "vite": "^7.2.7"
   },
 
   "peerDependencies": {
@@ -30,6 +38,8 @@
 
   "dependencies": {
     "@prisma/client": "6.0.0",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   }
 }
