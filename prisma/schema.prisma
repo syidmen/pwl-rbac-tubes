@@ -43,27 +43,23 @@ model Permission {
 }
 
 model UserRole {
-  id      String @id @default(cuid())
-
   userId  String
   roleId  String
 
   user    User @relation(fields: [userId], references: [id], onDelete: Cascade)
   role    Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, roleId], name: "userId_roleId")
+  @@id([userId, roleId], name: "userId_roleId")
 }
 
 model RolePermission {
-  id            String @id @default(cuid())
-
   roleId        String
   permissionId  String
 
   role          Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission    Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  @@unique([roleId, permissionId], name: "roleId_permissionId")
+  @@id([roleId, permissionId], name: "roleId_permissionId")
 }
 
 model Item {

@@ -3,9 +3,9 @@ import { handleRequest } from "./interfaces/http/router";
 
 const port = Number(process.env.PORT ?? 3000);
 
-Bun.serve({
+const server = Bun.serve({
   port,
   fetch: handleRequest,
 });
 
-console.log(`RBAC API berjalan di http://localhost:${port}`);
+console.log(`RBAC API berjalan di http://localhost:${server.port}`);
