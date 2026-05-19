@@ -1,6 +1,6 @@
 # PWL RBAC Tubes
 
-Repo starter untuk kerja kelompok RBAC dengan studi kasus **Inventaris Barang Sederhana**. Setiap anggota kerja di branch masing-masing, lalu membuat pull request ke `main`.
+Repo starter untuk kerja kelompok RBAC dengan studi kasus **Inventaris Barang Sederhana**. Setiap anggota kerja di branch masing-masing, lalu membuat pull request ke `review`.
 
 ## Cara Mulai
 
@@ -12,13 +12,18 @@ bun run dev
 ## Aturan Singkat
 
 - Jangan push langsung ke `main`.
+- Jangan push langsung ke `review` kecuali Lead/Admin.
 - Satu anggota pegang area file masing-masing.
 - Jika perlu mengubah file anggota lain, koordinasi dulu.
-- Testing akhir dilakukan oleh Lead/Admin setelah PR anggota masuk.
+- PR anggota masuk ke branch `review`.
+- Testing akhir dilakukan oleh Lead/Admin di branch `review`.
+- Jika sudah aman, Lead/Admin merge `review` ke `main`.
 
 ## Branch
 
 ```text
+main
+review
 feature/project-lead
 feature/database-prisma
 feature/auth-jwt
@@ -26,6 +31,12 @@ feature/rbac-service
 feature/middleware-security
 feature/domain-api
 feature/frontend
+```
+
+Alur branch:
+
+```text
+feature/* -> review -> main
 ```
 
 ## Pembagian Tugas
