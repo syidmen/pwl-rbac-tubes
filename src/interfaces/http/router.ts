@@ -33,6 +33,17 @@ export async function handleRequest(request: Request): Promise<Response> {
 
     const url = new URL(request.url);
 
+    if (request.method === "GET" && url.pathname === "/") {
+      return withCors(json({
+        message: "RBAC Inventaris API berjalan",
+        endpoints: {
+          auth: ["/auth/login", "/auth/me"],
+          items: ["/items", "/items/:id"],
+          rbac: ["/users", "/roles", "/permissions"],
+        },
+      }));
+    }
+
     for (const route of routes) {
       if (route.method !== request.method) continue;
 

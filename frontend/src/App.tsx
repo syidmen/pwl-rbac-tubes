@@ -2,8 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import {
   ApiError,
+  assignPermissionToRole,
+  assignRoleToUser,
   clearToken,
+  createPermission,
   createItem,
+  createRole,
+  createUser,
   deleteItem,
   getDemoRole,
   getItems,
@@ -28,6 +33,35 @@ const emptyForm: ItemFormData = {
   quantity: 0,
   location: "",
 };
+
+const emptyUserForm = {
+  username: "",
+  email: "",
+  password: "",
+};
+
+const emptyRoleForm = {
+  name: "",
+  description: "",
+};
+
+const emptyPermissionForm = {
+  name: "",
+  description: "",
+};
+
+const permissionOptions = [
+  { name: "item:create", description: "Boleh menambah data inventaris" },
+  { name: "item:read", description: "Boleh melihat data inventaris" },
+  { name: "item:update", description: "Boleh mengubah data inventaris" },
+  { name: "item:delete", description: "Boleh menghapus data inventaris" },
+  { name: "user:create", description: "Boleh menambah user" },
+  { name: "user:read", description: "Boleh melihat daftar user" },
+  { name: "user:update", description: "Boleh mengubah data user" },
+  { name: "user:delete", description: "Boleh menghapus user" },
+  { name: "role:manage", description: "Boleh mengelola role" },
+  { name: "permission:manage", description: "Boleh mengelola permission" },
+];
 
 const demoProfiles: Record<DemoRole, ActiveUser> = {
   superadmin: {
@@ -143,6 +177,18 @@ function normalizeCollection(payload: unknown) {
   return [];
 }
 
+function recordId(record: unknown) {
+  if (!record || typeof record !== "object") return "";
+  const value = (record as Record<string, unknown>).id;
+  return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+function recordName(record: unknown) {
+  if (!record || typeof record !== "object") return "-";
+  const value = record as Record<string, unknown>;
+  return String(value.username ?? value.name ?? value.email ?? value.code ?? value.id ?? "-");
+}
+
 export default function App() {
   const [token, setToken] = useState(getToken());
   const [email, setEmail] = useState("");
@@ -158,6 +204,16 @@ export default function App() {
   const [appError, setAppError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [rbacData, setRbacData] = useState({ users: 0, roles: 0, permissions: 0 });
+  const [usersList, setUsersList] = useState<unknown[]>([]);
+  const [rolesList, setRolesList] = useState<unknown[]>([]);
+  const [permissionsList, setPermissionsList] = useState<unknown[]>([]);
+  const [userForm, setUserForm] = useState(emptyUserForm);
+  const [roleForm, setRoleForm] = useState(emptyRoleForm);
+  const [permissionForm, setPermissionForm] = useState(emptyPermissionForm);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [selectedPermissionRoleId, setSelectedPermissionRoleId] = useState("");
+  const [selectedPermissionId, setSelectedPermissionId] = useState("");
   const [selectedMetric, setSelectedMetric] = useState<MetricKey | null>(null);
 
   const hasSession = Boolean(token);
@@ -172,6 +228,9 @@ export default function App() {
         setUser(demoProfiles[role]);
         setItems((current) => (current.length ? current : demoItems));
         setRbacData(role === "superadmin" ? { users: 3, roles: 3, permissions: 8 } : { users: 0, roles: 0, permissions: 0 });
+        setUsersList(role === "superadmin" ? demoProfiles ? Object.values(demoProfiles) : [] : []);
+        setRolesList(role === "superadmin" ? ["superadmin", "admin", "user"] : []);
+        setPermissionsList(role === "superadmin" ? demoProfiles.superadmin.permissions ?? [] : []);
         return;
       }
 
@@ -180,10 +239,16 @@ export default function App() {
       setItems(Array.isArray(itemList) ? itemList : normalizeCollection(itemList));
 
       const [users, roles, permissions] = await Promise.allSettled([getUsers(), getRoles(), getPermissions()]);
+      const userRows = users.status === "fulfilled" ? normalizeCollection(users.value) : [];
+      const roleRows = roles.status === "fulfilled" ? normalizeCollection(roles.value) : [];
+      const permissionRows = permissions.status === "fulfilled" ? normalizeCollection(permissions.value) : [];
+      setUsersList(userRows);
+      setRolesList(roleRows);
+      setPermissionsList(permissionRows);
       setRbacData({
-        users: users.status === "fulfilled" ? normalizeCollection(users.value).length : 0,
-        roles: roles.status === "fulfilled" ? normalizeCollection(roles.value).length : 0,
-        permissions: permissions.status === "fulfilled" ? normalizeCollection(permissions.value).length : 0,
+        users: userRows.length,
+        roles: roleRows.length,
+        permissions: permissionRows.length,
       });
     } catch (error) {
       setAppError(errorText(error));
@@ -297,6 +362,98 @@ export default function App() {
     setLoginError("");
     setEmail("");
     setPassword("");
+  }
+
+  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppError("");
+
+    if (!canReadRbac) {
+      setAppError("Hanya superadmin yang dapat menambah user.");
+      return;
+    }
+
+    try {
+      await createUser(userForm);
+      setUserForm(emptyUserForm);
+      await loadDashboard();
+    } catch (error) {
+      setAppError(errorText(error));
+    }
+  }
+
+  async function handleCreateRole(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppError("");
+
+    if (!canReadRbac) {
+      setAppError("Hanya superadmin yang dapat menambah role.");
+      return;
+    }
+
+    try {
+      await createRole(roleForm);
+      setRoleForm(emptyRoleForm);
+      await loadDashboard();
+    } catch (error) {
+      setAppError(errorText(error));
+    }
+  }
+
+  async function handleCreatePermission(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppError("");
+
+    if (!canReadRbac) {
+      setAppError("Hanya superadmin yang dapat menambah permission.");
+      return;
+    }
+
+    try {
+      await createPermission(permissionForm);
+      setPermissionForm(emptyPermissionForm);
+      await loadDashboard();
+    } catch (error) {
+      setAppError(errorText(error));
+    }
+  }
+
+  async function handleAssignRole(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppError("");
+
+    if (!selectedUserId || !selectedRoleId) {
+      setAppError("Pilih user dan role terlebih dahulu.");
+      return;
+    }
+
+    try {
+      await assignRoleToUser(selectedUserId, selectedRoleId);
+      setSelectedUserId("");
+      setSelectedRoleId("");
+      await loadDashboard();
+    } catch (error) {
+      setAppError(errorText(error));
+    }
+  }
+
+  async function handleAssignPermission(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppError("");
+
+    if (!selectedPermissionRoleId || !selectedPermissionId) {
+      setAppError("Pilih role dan permission terlebih dahulu.");
+      return;
+    }
+
+    try {
+      await assignPermissionToRole(selectedPermissionRoleId, selectedPermissionId);
+      setSelectedPermissionRoleId("");
+      setSelectedPermissionId("");
+      await loadDashboard();
+    } catch (error) {
+      setAppError(errorText(error));
+    }
   }
 
   async function handleSubmitItem(event: FormEvent<HTMLFormElement>) {
@@ -547,6 +704,152 @@ export default function App() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+      ) : null}
+
+      {canReadRbac ? (
+        <section className="rbac-panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Manajemen RBAC</p>
+              <h2>User, role, dan permission</h2>
+            </div>
+          </div>
+
+          <div className="rbac-grid">
+            <form className="rbac-form" onSubmit={handleCreateUser}>
+              <h3>Tambah User</h3>
+              <input
+                onChange={(event) => setUserForm((current) => ({ ...current, username: event.target.value }))}
+                placeholder="Username"
+                required
+                value={userForm.username}
+              />
+              <input
+                onChange={(event) => setUserForm((current) => ({ ...current, email: event.target.value }))}
+                placeholder="Email"
+                required
+                type="email"
+                value={userForm.email}
+              />
+              <input
+                onChange={(event) => setUserForm((current) => ({ ...current, password: event.target.value }))}
+                placeholder="Password"
+                required
+                type="password"
+                value={userForm.password}
+              />
+              <button type="submit">Tambah User</button>
+            </form>
+
+            <form className="rbac-form" onSubmit={handleCreateRole}>
+              <h3>Tambah Role</h3>
+              <input
+                onChange={(event) => setRoleForm((current) => ({ ...current, name: event.target.value }))}
+                placeholder="Nama role"
+                required
+                value={roleForm.name}
+              />
+              <input
+                onChange={(event) => setRoleForm((current) => ({ ...current, description: event.target.value }))}
+                placeholder="Deskripsi"
+                value={roleForm.description}
+              />
+              <button type="submit">Tambah Role</button>
+            </form>
+
+            <form className="rbac-form" onSubmit={handleCreatePermission}>
+              <h3>Tambah Permission</h3>
+              <select
+                onChange={(event) => {
+                  const selected = permissionOptions.find((option) => option.name === event.target.value);
+                  setPermissionForm({
+                    name: event.target.value,
+                    description: selected?.description ?? "",
+                  });
+                }}
+                required
+                value={permissionForm.name}
+              >
+                <option value="">Pilih permission</option>
+                {permissionOptions.map((option) => (
+                  <option key={option.name} value={option.name}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                onChange={(event) => setPermissionForm((current) => ({ ...current, description: event.target.value }))}
+                placeholder="Deskripsi"
+                value={permissionForm.description}
+              />
+              <button type="submit">Tambah Permission</button>
+            </form>
+          </div>
+
+          <div className="rbac-grid two">
+            <form className="rbac-form" onSubmit={handleAssignRole}>
+              <h3>Assign Role ke User</h3>
+              <select onChange={(event) => setSelectedUserId(event.target.value)} required value={selectedUserId}>
+                <option value="">Pilih user</option>
+                {usersList.map((row) => {
+                  const id = recordId(row);
+                  return id ? (
+                    <option key={id} value={id}>
+                      {recordName(row)}
+                    </option>
+                  ) : null;
+                })}
+              </select>
+              <select onChange={(event) => setSelectedRoleId(event.target.value)} required value={selectedRoleId}>
+                <option value="">Pilih role</option>
+                {rolesList.map((row) => {
+                  const id = recordId(row);
+                  return id ? (
+                    <option key={id} value={id}>
+                      {recordName(row)}
+                    </option>
+                  ) : null;
+                })}
+              </select>
+              <button type="submit">Assign Role</button>
+            </form>
+
+            <form className="rbac-form" onSubmit={handleAssignPermission}>
+              <h3>Assign Permission ke Role</h3>
+              <select
+                onChange={(event) => setSelectedPermissionRoleId(event.target.value)}
+                required
+                value={selectedPermissionRoleId}
+              >
+                <option value="">Pilih role</option>
+                {rolesList.map((row) => {
+                  const id = recordId(row);
+                  return id ? (
+                    <option key={id} value={id}>
+                      {recordName(row)}
+                    </option>
+                  ) : null;
+                })}
+              </select>
+              <select
+                onChange={(event) => setSelectedPermissionId(event.target.value)}
+                required
+                value={selectedPermissionId}
+              >
+                <option value="">Pilih permission</option>
+                {permissionsList.map((row) => {
+                  const id = recordId(row);
+                  return id ? (
+                    <option key={id} value={id}>
+                      {recordName(row)}
+                    </option>
+                  ) : null;
+                })}
+              </select>
+              <button type="submit">Assign Permission</button>
+            </form>
           </div>
         </section>
       ) : null}

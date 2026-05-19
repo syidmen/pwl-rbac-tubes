@@ -116,6 +116,17 @@ function extractToken(payload: unknown) {
   return typeof token === "string" ? token : null;
 }
 
+function extractUser(payload: unknown): ActiveUser {
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    if (record.user && typeof record.user === "object") {
+      return record.user as ActiveUser;
+    }
+  }
+
+  return payload as ActiveUser;
+}
+
 export async function login(payload: LoginPayload) {
   const response = await apiFetch<unknown>("/auth/login", {
     method: "POST",
@@ -132,8 +143,9 @@ export async function login(payload: LoginPayload) {
   return token;
 }
 
-export function getMe() {
-  return apiFetch<ActiveUser>("/auth/me");
+export async function getMe() {
+  const response = await apiFetch<unknown>("/auth/me");
+  return extractUser(response);
 }
 
 export function getItems() {
@@ -170,4 +182,39 @@ export function getRoles() {
 
 export function getPermissions() {
   return apiFetch<unknown[]>("/permissions");
+}
+
+export function createUser(payload: { username: string; email: string; password: string }) {
+  return apiFetch<unknown>("/users", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function createRole(payload: { name: string; description?: string }) {
+  return apiFetch<unknown>("/roles", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function createPermission(payload: { name: string; description?: string }) {
+  return apiFetch<unknown>("/permissions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function assignRoleToUser(userId: string | number, roleId: string | number) {
+  return apiFetch<unknown>(`/users/${userId}/roles`, {
+    method: "POST",
+    body: JSON.stringify({ roleId }),
+  });
+}
+
+export function assignPermissionToRole(roleId: string | number, permissionId: string | number) {
+  return apiFetch<unknown>(`/roles/${roleId}/permissions`, {
+    method: "POST",
+    body: JSON.stringify({ permissionId }),
+  });
 }
