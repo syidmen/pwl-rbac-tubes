@@ -1,306 +1,198 @@
-// src/application/services/rbac-service.ts
-// Anggota 4 - RBAC Service
+import {
+  assignPermissionToRole,
+  assignRoleToUser,
+  createPermission,
+  createRole,
+  createUser,
+  deletePermission,
+  deleteRole,
+  deleteUser,
+  ensureItemPermissions,
+  getPermissionById,
+  getRoleById,
+  getUserById,
+  getUserPermissions,
+  listPermissions,
+  listRoles,
+  listUsers,
+  removePermissionFromRole,
+  removeRoleFromUser,
+  updatePermission,
+  updateRole,
+  updateUser,
+  userHasPermission,
+} from "../../../application/services/rbac-service";
+import { json } from "../response";
 
-import { db } from "../../infrastructure/database/prisma-client";
+export type RouteParams = Record<string, string>;
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+export type RouteHandler = (
+  request: Request,
+  params: RouteParams,
+) => Promise<Response> | Response;
 
-export type CreateUserInput = {
-  username: string;
-  email: string;
-  password: string; // sudah di-hash oleh caller (auth-service)
+export type RbacRoute = {
+  method: string;
+  pattern: RegExp;
+  handler: RouteHandler;
 };
 
-export type UpdateUserInput = Partial<Omit<CreateUserInput, "password">>;
+export const rbacRoutes: RbacRoute[] = [
+  route("GET", /^\/users$/, async () => json(await listUsers())),
+  route("POST", /^\/users$/, async (request) => {
+    const body = await readBody(request);
+    return json(
+      await createUser({
+        username: requiredString(body, "username"),
+        email: requiredString(body, "email"),
+        password: requiredString(body, "password"),
+      }),
+      201,
+    );
+  }),
+  route("GET", /^\/users\/(?<id>[^/]+)$/, async (_request, params) => {
+    const user = await getUserById(param(params, "id"));
+    return user ? json(user) : json({ message: "User tidak ditemukan" }, 404);
+  }),
+  route("PATCH", /^\/users\/(?<id>[^/]+)$/, async (request, params) => {
+    const body = await readBody(request);
+    return json(
+      await updateUser(param(params, "id"), {
+        username: optionalString(body, "username"),
+        email: optionalString(body, "email"),
+        password: optionalString(body, "password"),
+      }),
+    );
+  }),
+  route("DELETE", /^\/users\/(?<id>[^/]+)$/, async (_request, params) => {
+    await deleteUser(param(params, "id"));
+    return json({ message: "User berhasil dihapus" });
+  }),
+  route("POST", /^\/users\/(?<id>[^/]+)\/roles$/, async (request, params) => {
+    const body = await readBody(request);
+    return json(await assignRoleToUser(param(params, "id"), requiredString(body, "roleId")), 201);
+  }),
+  route("DELETE", /^\/users\/(?<userId>[^/]+)\/roles\/(?<roleId>[^/]+)$/, async (_request, params) => {
+    await removeRoleFromUser(param(params, "userId"), param(params, "roleId"));
+    return json({ message: "Role user berhasil dihapus" });
+  }),
+  route("GET", /^\/users\/(?<id>[^/]+)\/permissions$/, async (_request, params) => {
+    return json(await getUserPermissions(param(params, "id")));
+  }),
+  route("GET", /^\/users\/(?<id>[^/]+)\/permissions\/(?<permission>[^/]+)$/, async (_request, params) => {
+    return json({
+      allowed: await userHasPermission(param(params, "id"), decodeURIComponent(param(params, "permission"))),
+    });
+  }),
 
-export type CreateRoleInput = {
-  name: string;
-  description?: string;
-};
+  route("GET", /^\/roles$/, async () => json(await listRoles())),
+  route("POST", /^\/roles$/, async (request) => {
+    const body = await readBody(request);
+    return json(
+      await createRole({
+        name: requiredString(body, "name"),
+        description: optionalString(body, "description"),
+      }),
+      201,
+    );
+  }),
+  route("GET", /^\/roles\/(?<id>[^/]+)$/, async (_request, params) => {
+    const roleItem = await getRoleById(param(params, "id"));
+    return roleItem ? json(roleItem) : json({ message: "Role tidak ditemukan" }, 404);
+  }),
+  route("PATCH", /^\/roles\/(?<id>[^/]+)$/, async (request, params) => {
+    const body = await readBody(request);
+    return json(
+      await updateRole(param(params, "id"), {
+        name: optionalString(body, "name"),
+        description: optionalString(body, "description"),
+      }),
+    );
+  }),
+  route("DELETE", /^\/roles\/(?<id>[^/]+)$/, async (_request, params) => {
+    await deleteRole(param(params, "id"));
+    return json({ message: "Role berhasil dihapus" });
+  }),
+  route("POST", /^\/roles\/(?<id>[^/]+)\/permissions$/, async (request, params) => {
+    const body = await readBody(request);
+    return json(await assignPermissionToRole(param(params, "id"), requiredString(body, "permissionId")), 201);
+  }),
+  route("DELETE", /^\/roles\/(?<roleId>[^/]+)\/permissions\/(?<permissionId>[^/]+)$/, async (_request, params) => {
+    await removePermissionFromRole(param(params, "roleId"), param(params, "permissionId"));
+    return json({ message: "Permission role berhasil dihapus" });
+  }),
 
-export type CreatePermissionInput = {
-  name: string;       // contoh: "item:create"
-  description?: string;
-};
+  route("GET", /^\/permissions$/, async () => json(await listPermissions())),
+  route("POST", /^\/permissions$/, async (request) => {
+    const body = await readBody(request);
+    return json(
+      await createPermission({
+        name: requiredString(body, "name"),
+        description: optionalString(body, "description"),
+      }),
+      201,
+    );
+  }),
+  route("POST", /^\/permissions\/items\/seed$/, async () => {
+    return json(await ensureItemPermissions(), 201);
+  }),
+  route("GET", /^\/permissions\/(?<id>[^/]+)$/, async (_request, params) => {
+    const permission = await getPermissionById(param(params, "id"));
+    return permission ? json(permission) : json({ message: "Permission tidak ditemukan" }, 404);
+  }),
+  route("PATCH", /^\/permissions\/(?<id>[^/]+)$/, async (request, params) => {
+    const body = await readBody(request);
+    return json(
+      await updatePermission(param(params, "id"), {
+        name: optionalString(body, "name"),
+        description: optionalString(body, "description"),
+      }),
+    );
+  }),
+  route("DELETE", /^\/permissions\/(?<id>[^/]+)$/, async (_request, params) => {
+    await deletePermission(param(params, "id"));
+    return json({ message: "Permission berhasil dihapus" });
+  }),
+];
 
-// ─── Helper: buang field password dari object user ───────────────────────────
-
-function omitPassword<T extends { password?: unknown }>(user: T) {
-  const { password: _pw, ...safe } = user;
-  return safe;
+function route(method: string, pattern: RegExp, handler: RouteHandler): RbacRoute {
+  return { method, pattern, handler };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// USER
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function getAllUsers() {
-  const users = await db.user.findMany({
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      createdAt: true,
-      updatedAt: true,
-      roles: {
-        select: {
-          role: {
-            select: { id: true, name: true },
-          },
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  // Flatten relasi UserRole → roles: [{id, name}]
-  return users.map((u) => ({
-    ...u,
-    roles: u.roles.map((ur) => ur.role),
-  }));
-}
-
-export async function getUserById(id: number) {
-  const user = await db.user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      createdAt: true,
-      updatedAt: true,
-      roles: {
-        select: {
-          role: {
-            select: {
-              id: true,
-              name: true,
-              permissions: {
-                select: {
-                  permission: {
-                    select: { id: true, name: true },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!user) return null;
-
-  return {
-    ...user,
-    roles: user.roles.map((ur) => ({
-      id: ur.role.id,
-      name: ur.role.name,
-      permissions: ur.role.permissions.map((rp) => rp.permission),
-    })),
-  };
-}
-
-export async function createUser(input: CreateUserInput) {
-  const user = await db.user.create({
-    data: {
-      username: input.username,
-      email: input.email,
-      password: input.password,
-    },
-  });
-  return omitPassword(user);
-}
-
-export async function updateUser(id: number, input: UpdateUserInput) {
-  const user = await db.user.update({
-    where: { id },
-    data: input,
-  });
-  return omitPassword(user);
-}
-
-export async function deleteUser(id: number) {
-  await db.user.delete({ where: { id } });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ROLE
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function getAllRoles() {
-  const roles = await db.role.findMany({
-    include: {
-      permissions: {
-        select: {
-          permission: { select: { id: true, name: true } },
-        },
-      },
-    },
-    orderBy: { name: "asc" },
-  });
-
-  return roles.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    permissions: r.permissions.map((rp) => rp.permission),
-  }));
-}
-
-export async function getRoleById(id: number) {
-  const role = await db.role.findUnique({
-    where: { id },
-    include: {
-      permissions: {
-        select: {
-          permission: { select: { id: true, name: true, description: true } },
-        },
-      },
-    },
-  });
-
-  if (!role) return null;
-
-  return {
-    id: role.id,
-    name: role.name,
-    description: role.description,
-    permissions: role.permissions.map((rp) => rp.permission),
-  };
-}
-
-export async function createRole(input: CreateRoleInput) {
-  return db.role.create({ data: input });
-}
-
-export async function updateRole(id: number, input: Partial<CreateRoleInput>) {
-  return db.role.update({ where: { id }, data: input });
-}
-
-export async function deleteRole(id: number) {
-  await db.role.delete({ where: { id } });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// PERMISSION
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function getAllPermissions() {
-  return db.permission.findMany({ orderBy: { name: "asc" } });
-}
-
-export async function getPermissionById(id: number) {
-  return db.permission.findUnique({ where: { id } });
-}
-
-export async function createPermission(input: CreatePermissionInput) {
-  return db.permission.create({ data: input });
-}
-
-export async function updatePermission(
-  id: number,
-  input: Partial<CreatePermissionInput>
-) {
-  return db.permission.update({ where: { id }, data: input });
-}
-
-export async function deletePermission(id: number) {
-  await db.permission.delete({ where: { id } });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ASSIGN: ROLE ↔ USER
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function assignRoleToUser(userId: number, roleId: number) {
-  // upsert agar tidak error jika sudah ada
-  return db.userRole.upsert({
-    where: { userId_roleId: { userId, roleId } },
-    create: { userId, roleId },
-    update: {},
-  });
-}
-
-export async function removeRoleFromUser(userId: number, roleId: number) {
-  await db.userRole.delete({
-    where: { userId_roleId: { userId, roleId } },
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ASSIGN: PERMISSION ↔ ROLE
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function assignPermissionToRole(
-  roleId: number,
-  permissionId: number
-) {
-  return db.rolePermission.upsert({
-    where: { roleId_permissionId: { roleId, permissionId } },
-    create: { roleId, permissionId },
-    update: {},
-  });
-}
-
-export async function removePermissionFromRole(
-  roleId: number,
-  permissionId: number
-) {
-  await db.rolePermission.delete({
-    where: { roleId_permissionId: { roleId, permissionId } },
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// CEK PERMISSION USER
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Kembalikan semua permission name milik user (dari semua role-nya).
- */
-export async function getUserPermissions(userId: number): Promise<string[]> {
-  const userRoles = await db.userRole.findMany({
-    where: { userId },
-    include: {
-      role: {
-        include: {
-          permissions: {
-            include: { permission: true },
-          },
-        },
-      },
-    },
-  });
-
-  const permissionSet = new Set<string>();
-  for (const ur of userRoles) {
-    for (const rp of ur.role.permissions) {
-      permissionSet.add(rp.permission.name);
-    }
+function param(params: RouteParams, key: string): string {
+  const value = params[key];
+  if (!value) {
+    throw new Error(`Parameter ${key} tidak ditemukan`);
   }
 
-  return Array.from(permissionSet);
+  return value;
 }
 
-/**
- * Cek apakah user memiliki permission tertentu.
- */
-export async function userHasPermission(
-  userId: number,
-  permissionName: string
-): Promise<boolean> {
-  const count = await db.userRole.count({
-    where: {
-      userId,
-      role: {
-        permissions: {
-          some: {
-            permission: { name: permissionName },
-          },
-        },
-      },
-    },
-  });
-  return count > 0;
+async function readBody(request: Request): Promise<Record<string, unknown>> {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new Error("Body JSON tidak valid");
+  }
+
+  return body as Record<string, unknown>;
+}
+
+function requiredString(body: Record<string, unknown>, key: string): string {
+  const value = body[key];
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`${key} wajib diisi`);
+  }
+
+  return value.trim();
+}
+
+function optionalString(body: Record<string, unknown>, key: string): string | undefined {
+  const value = body[key];
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") {
+    throw new Error(`${key} harus berupa string`);
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }

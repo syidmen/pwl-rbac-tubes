@@ -1,17 +1,19 @@
-// src/application/services/rbac-service.ts
-// Anggota 4 - RBAC Service
-
 import { db } from "../../infrastructure/database/prisma-client";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+export const itemPermissionNames = [
+  "item:create",
+  "item:read",
+  "item:update",
+  "item:delete",
+] as const;
 
 export type CreateUserInput = {
   username: string;
   email: string;
-  password: string; // sudah di-hash oleh caller (auth-service)
+  password: string;
 };
 
-export type UpdateUserInput = Partial<Omit<CreateUserInput, "password">>;
+export type UpdateUserInput = Partial<CreateUserInput>;
 
 export type CreateRoleInput = {
   name: string;
@@ -19,23 +21,13 @@ export type CreateRoleInput = {
 };
 
 export type CreatePermissionInput = {
-  name: string;       // contoh: "item:create"
+  name: string;
   description?: string;
 };
 
-// ─── Helper: buang field password dari object user ───────────────────────────
-
-function omitPassword<T extends { password?: unknown }>(user: T) {
-  const { password: _pw, ...safe } = user;
-  return safe;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// USER
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function getAllUsers() {
-  const users = await db.user.findMany({
+export async function listUsers() {
+  return db.user.findMany({
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       username: true,
@@ -45,23 +37,20 @@ export async function getAllUsers() {
       roles: {
         select: {
           role: {
-            select: { id: true, name: true },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+            },
           },
         },
       },
     },
-    orderBy: { createdAt: "desc" },
   });
-
-  // Flatten relasi UserRole → roles: [{id, name}]
-  return users.map((u) => ({
-    ...u,
-    roles: u.roles.map((ur) => ur.role),
-  }));
 }
 
-export async function getUserById(id: number) {
-  const user = await db.user.findUnique({
+export async function getUserById(id: string) {
+  return db.user.findUnique({
     where: { id },
     select: {
       id: true,
@@ -75,10 +64,15 @@ export async function getUserById(id: number) {
             select: {
               id: true,
               name: true,
+              description: true,
               permissions: {
                 select: {
                   permission: {
-                    select: { id: true, name: true },
+                    select: {
+                      id: true,
+                      name: true,
+                      description: true,
+                    },
                   },
                 },
               },
@@ -88,219 +82,231 @@ export async function getUserById(id: number) {
       },
     },
   });
-
-  if (!user) return null;
-
-  return {
-    ...user,
-    roles: user.roles.map((ur) => ({
-      id: ur.role.id,
-      name: ur.role.name,
-      permissions: ur.role.permissions.map((rp) => rp.permission),
-    })),
-  };
 }
 
 export async function createUser(input: CreateUserInput) {
-  const user = await db.user.create({
+  const password = await Bun.password.hash(input.password);
+
+  return db.user.create({
     data: {
       username: input.username,
       email: input.email,
-      password: input.password,
+      password,
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      createdAt: true,
+      updatedAt: true,
     },
   });
-  return omitPassword(user);
 }
 
-export async function updateUser(id: number, input: UpdateUserInput) {
-  const user = await db.user.update({
+export async function updateUser(id: string, input: UpdateUserInput) {
+  const password = input.password ? await Bun.password.hash(input.password) : undefined;
+
+  return db.user.update({
     where: { id },
-    data: input,
-  });
-  return omitPassword(user);
-}
-
-export async function deleteUser(id: number) {
-  await db.user.delete({ where: { id } });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ROLE
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function getAllRoles() {
-  const roles = await db.role.findMany({
-    include: {
-      permissions: {
-        select: {
-          permission: { select: { id: true, name: true } },
-        },
-      },
+    data: {
+      username: input.username,
+      email: input.email,
+      password,
     },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+}
+
+export async function deleteUser(id: string) {
+  return db.user.delete({
+    where: { id },
+    select: {
+      id: true,
+    },
+  });
+}
+
+export async function listRoles() {
+  return db.role.findMany({
     orderBy: { name: "asc" },
-  });
-
-  return roles.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    permissions: r.permissions.map((rp) => rp.permission),
-  }));
-}
-
-export async function getRoleById(id: number) {
-  const role = await db.role.findUnique({
-    where: { id },
     include: {
       permissions: {
-        select: {
-          permission: { select: { id: true, name: true, description: true } },
+        include: {
+          permission: true,
         },
       },
     },
   });
-
-  if (!role) return null;
-
-  return {
-    id: role.id,
-    name: role.name,
-    description: role.description,
-    permissions: role.permissions.map((rp) => rp.permission),
-  };
 }
 
-export async function createRole(input: CreateRoleInput) {
+export function getRoleById(id: string) {
+  return db.role.findUnique({
+    where: { id },
+    include: {
+      permissions: {
+        include: {
+          permission: true,
+        },
+      },
+    },
+  });
+}
+
+export function createRole(input: CreateRoleInput) {
   return db.role.create({ data: input });
 }
 
-export async function updateRole(id: number, input: Partial<CreateRoleInput>) {
-  return db.role.update({ where: { id }, data: input });
+export function updateRole(id: string, input: Partial<CreateRoleInput>) {
+  return db.role.update({
+    where: { id },
+    data: input,
+  });
 }
 
-export async function deleteRole(id: number) {
-  await db.role.delete({ where: { id } });
+export function deleteRole(id: string) {
+  return db.role.delete({ where: { id } });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// PERMISSION
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function getAllPermissions() {
-  return db.permission.findMany({ orderBy: { name: "asc" } });
+export function listPermissions() {
+  return db.permission.findMany({
+    orderBy: { name: "asc" },
+  });
 }
 
-export async function getPermissionById(id: number) {
+export function getPermissionById(id: string) {
   return db.permission.findUnique({ where: { id } });
 }
 
-export async function createPermission(input: CreatePermissionInput) {
+export function createPermission(input: CreatePermissionInput) {
   return db.permission.create({ data: input });
 }
 
-export async function updatePermission(
-  id: number,
-  input: Partial<CreatePermissionInput>
-) {
-  return db.permission.update({ where: { id }, data: input });
+export function updatePermission(id: string, input: Partial<CreatePermissionInput>) {
+  return db.permission.update({
+    where: { id },
+    data: input,
+  });
 }
 
-export async function deletePermission(id: number) {
-  await db.permission.delete({ where: { id } });
+export function deletePermission(id: string) {
+  return db.permission.delete({ where: { id } });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ASSIGN: ROLE ↔ USER
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function assignRoleToUser(userId: number, roleId: number) {
-  // upsert agar tidak error jika sudah ada
+export function assignRoleToUser(userId: string, roleId: string) {
   return db.userRole.upsert({
-    where: { userId_roleId: { userId, roleId } },
-    create: { userId, roleId },
+    where: {
+      userId_roleId: {
+        userId,
+        roleId,
+      },
+    },
+    create: {
+      userId,
+      roleId,
+    },
     update: {},
   });
 }
 
-export async function removeRoleFromUser(userId: number, roleId: number) {
-  await db.userRole.delete({
-    where: { userId_roleId: { userId, roleId } },
+export function removeRoleFromUser(userId: string, roleId: string) {
+  return db.userRole.delete({
+    where: {
+      userId_roleId: {
+        userId,
+        roleId,
+      },
+    },
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ASSIGN: PERMISSION ↔ ROLE
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export async function assignPermissionToRole(
-  roleId: number,
-  permissionId: number
-) {
+export function assignPermissionToRole(roleId: string, permissionId: string) {
   return db.rolePermission.upsert({
-    where: { roleId_permissionId: { roleId, permissionId } },
-    create: { roleId, permissionId },
+    where: {
+      roleId_permissionId: {
+        roleId,
+        permissionId,
+      },
+    },
+    create: {
+      roleId,
+      permissionId,
+    },
     update: {},
   });
 }
 
-export async function removePermissionFromRole(
-  roleId: number,
-  permissionId: number
-) {
-  await db.rolePermission.delete({
-    where: { roleId_permissionId: { roleId, permissionId } },
+export function removePermissionFromRole(roleId: string, permissionId: string) {
+  return db.rolePermission.delete({
+    where: {
+      roleId_permissionId: {
+        roleId,
+        permissionId,
+      },
+    },
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// CEK PERMISSION USER
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Kembalikan semua permission name milik user (dari semua role-nya).
- */
-export async function getUserPermissions(userId: number): Promise<string[]> {
+export async function getUserPermissions(userId: string) {
   const userRoles = await db.userRole.findMany({
     where: { userId },
     include: {
       role: {
         include: {
           permissions: {
-            include: { permission: true },
+            include: {
+              permission: true,
+            },
           },
         },
       },
     },
   });
 
-  const permissionSet = new Set<string>();
-  for (const ur of userRoles) {
-    for (const rp of ur.role.permissions) {
-      permissionSet.add(rp.permission.name);
-    }
-  }
-
-  return Array.from(permissionSet);
+  return [
+    ...new Set(
+      userRoles.flatMap((userRole) =>
+        userRole.role.permissions.map((rolePermission) => rolePermission.permission.name),
+      ),
+    ),
+  ];
 }
 
-/**
- * Cek apakah user memiliki permission tertentu.
- */
-export async function userHasPermission(
-  userId: number,
-  permissionName: string
-): Promise<boolean> {
-  const count = await db.userRole.count({
+export async function userHasPermission(userId: string, permissionName: string) {
+  const permissionCount = await db.userRole.count({
     where: {
       userId,
       role: {
         permissions: {
           some: {
-            permission: { name: permissionName },
+            permission: {
+              name: permissionName,
+            },
           },
         },
       },
     },
   });
-  return count > 0;
+
+  return permissionCount > 0;
+}
+
+export async function ensureItemPermissions() {
+  return Promise.all(
+    itemPermissionNames.map((name) =>
+      db.permission.upsert({
+        where: { name },
+        update: {},
+        create: {
+          name,
+          description: `Permission untuk ${name}`,
+        },
+      }),
+    ),
+  );
 }
