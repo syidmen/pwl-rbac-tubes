@@ -37,22 +37,18 @@ CREATE TABLE `Permission` (
 
 -- CreateTable
 CREATE TABLE `UserRole` (
-    `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
     `roleId` VARCHAR(191) NOT NULL,
 
-    UNIQUE INDEX `UserRole_userId_roleId_key`(`userId`, `roleId`),
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`userId`, `roleId`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
 CREATE TABLE `RolePermission` (
-    `id` VARCHAR(191) NOT NULL,
     `roleId` VARCHAR(191) NOT NULL,
     `permissionId` VARCHAR(191) NOT NULL,
 
-    UNIQUE INDEX `RolePermission_roleId_permissionId_key`(`roleId`, `permissionId`),
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`roleId`, `permissionId`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable

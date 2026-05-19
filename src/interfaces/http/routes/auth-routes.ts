@@ -1,6 +1,6 @@
 import { AuthService } from "../../../application/services/auth-service";
-import { RouteDefinition } from "../router";
 import { json, error } from "../response";
+import type { RouteDefinition } from "../router";
 
 export const routes: RouteDefinition[] = [
   {
@@ -32,7 +32,11 @@ export const routes: RouteDefinition[] = [
           return error("Akses ditolak: Token tidak ditemukan", 401);
         }
 
-        const token = authHeader.split(" ")[1];
+        const token = authHeader.slice("Bearer ".length).trim();
+        if (!token) {
+          return error("Akses ditolak: Token tidak ditemukan", 401);
+        }
+
         const decodedUser = AuthService.verifyToken(token);
 
         return json({

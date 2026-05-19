@@ -1,4 +1,6 @@
 import { HttpError } from "../errors";
+import { authMiddleware } from "../middleware/auth-middleware";
+import { permissionMiddleware } from "../middleware/permission-middleware";
 import { json } from "../response";
 import { requiredString } from "../validation";
 import {
@@ -91,30 +93,41 @@ async function handleDeleteItem(_req: Request, params: Record<string, string | u
 
 // ─── Route Definitions ────────────────────────────────────────────────────────
 
+function protectedHandler(
+  permission: string,
+  handler: (request: Request, params: Record<string, string | undefined>) => Promise<Response> | Response,
+) {
+  return async (request: Request, params: Record<string, string | undefined>) => {
+    const authRequest = await authMiddleware(request);
+    permissionMiddleware(permission)(authRequest);
+    return handler(authRequest, params);
+  };
+}
+
 export const itemRoutes = [
   {
     method:  "GET",
     pattern: /^\/items$/,
-    handler: handleListItems,
+    handler: protectedHandler("item:read", handleListItems),
   },
   {
     method:  "POST",
     pattern: /^\/items$/,
-    handler: handleCreateItem,
+    handler: protectedHandler("item:create", handleCreateItem),
   },
   {
     method:  "GET",
     pattern: /^\/items\/(?<id>[^/]+)$/,
-    handler: handleGetItem,
+    handler: protectedHandler("item:read", handleGetItem),
   },
   {
     method:  "PATCH",
     pattern: /^\/items\/(?<id>[^/]+)$/,
-    handler: handleUpdateItem,
+    handler: protectedHandler("item:update", handleUpdateItem),
   },
   {
     method:  "DELETE",
     pattern: /^\/items\/(?<id>[^/]+)$/,
-    handler: handleDeleteItem,
+    handler: protectedHandler("item:delete", handleDeleteItem),
   },
 ];

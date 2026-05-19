@@ -70,7 +70,9 @@ export class AuthService {
 
     // 4. Buat payload (isi data JWT)
     const payload = {
+      sub: user.id,
       userId: user.id,
+      username: user.username,
       email: user.email,
       roles: userRoles,
       permissions: userPermissions,
@@ -86,8 +88,10 @@ export class AuthService {
       token,
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         roles: userRoles,
+        permissions: userPermissions,
       },
     };
   }
