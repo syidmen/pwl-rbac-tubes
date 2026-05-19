@@ -94,27 +94,27 @@ async function handleDeleteItem(_req: Request, params: Record<string, string | u
 export const itemRoutes = [
   {
     method:  "GET",
-    pattern: new URLPattern({ pathname: "/items" }),
+    pattern: /^\/items$/,
     handler: handleListItems,
   },
   {
     method:  "POST",
-    pattern: new URLPattern({ pathname: "/items" }),
+    pattern: /^\/items$/,
     handler: handleCreateItem,
   },
   {
     method:  "GET",
-    pattern: new URLPattern({ pathname: "/items/:id" }),
+    pattern: /^\/items\/(?<id>[^/]+)$/,
     handler: handleGetItem,
   },
   {
     method:  "PATCH",
-    pattern: new URLPattern({ pathname: "/items/:id" }),
+    pattern: /^\/items\/(?<id>[^/]+)$/,
     handler: handleUpdateItem,
   },
   {
     method:  "DELETE",
-    pattern: new URLPattern({ pathname: "/items/:id" }),
+    pattern: /^\/items\/(?<id>[^/]+)$/,
     handler: handleDeleteItem,
   },
 ];

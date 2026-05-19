@@ -1,5 +1,6 @@
 import { UnauthorizedError } from "../errors";
-import { verifyToken, JwtPayload } from "../../../infrastructure/jwt";
+import { verifyToken } from "../../../infrastructure/jwt";
+import type { JwtPayload } from "../../../infrastructure/jwt";
 
 export type AuthenticatedRequest = Request & {
   user: JwtPayload;
