@@ -6,8 +6,156 @@ Repo starter untuk kerja kelompok RBAC dengan studi kasus **Inventaris Barang Se
 
 ```bash
 bun install
+bunx prisma generate
+bunx prisma migrate dev
+bun prisma/seed.ts
 bun run dev
 ```
+
+Backend berjalan di:
+
+```text
+http://localhost:3000
+```
+
+Frontend dijalankan di terminal lain:
+
+```bash
+bun run frontend:dev
+```
+
+Biasanya frontend berjalan di:
+
+```text
+http://localhost:5173
+```
+
+## Setup Environment
+
+Buat file `.env` di root project:
+
+```env
+DATABASE_URL="mysql://USER:PASSWORD@localhost:3306/rbac_db"
+JWT_SECRET="ganti-dengan-secret-bebas"
+JWT_EXPIRES_IN_SECONDS=86400
+```
+
+Buat file `frontend/.env`:
+
+```env
+VITE_API_BASE_URL=http://localhost:3000
+```
+
+Jika frontend menampilkan `Failed to fetch`, pastikan backend `bun run dev` masih hidup dan `frontend/.env` sudah benar.
+
+## Setup Database dan Seed
+
+Generate Prisma Client:
+
+```bash
+bunx prisma generate
+```
+
+Jalankan migration:
+
+```bash
+bunx prisma migrate dev
+```
+
+Jika database lama tidak cocok dengan schema, untuk kebutuhan demo bisa reset database:
+
+```bash
+bunx prisma migrate reset
+```
+
+Perintah di atas akan menghapus isi database, menjalankan migration ulang, lalu menjalankan seed.
+
+Jika ingin seed manual:
+
+```bash
+bun prisma/seed.ts
+```
+
+Output berhasil:
+
+```text
+Seed selesai: Superadmin, Admin, dan permissions berhasil dibuat.
+```
+
+## Akun Seed
+
+Superadmin:
+
+```text
+email: superadmin@example.com
+password: password123
+role: SUPERADMIN
+```
+
+Admin:
+
+```text
+email: admin@example.com
+password: password123
+role: ADMIN
+```
+
+Permission bawaan:
+
+```text
+item:create
+item:read
+item:update
+item:delete
+```
+
+Kedua akun seed diberi semua permission item.
+
+## Alur Testing
+
+Jalankan validasi kode:
+
+```bash
+bun run typecheck
+bun run frontend:typecheck
+bun run frontend:build
+```
+
+Jalankan backend di terminal pertama:
+
+```bash
+bun run dev
+```
+
+Jalankan test API di terminal kedua:
+
+```bash
+bun test-api.ts
+```
+
+Tes manual di browser:
+
+```text
+http://localhost:3000
+```
+
+Tes frontend:
+
+```bash
+bun run frontend:dev
+```
+
+Login menggunakan akun seed, lalu coba:
+
+- dashboard tampil
+- tambah item
+- edit item
+- hapus item
+- tambah user
+- tambah role
+- tambah permission
+- assign role ke user
+- assign permission ke role
 
 ## Aturan Singkat
 

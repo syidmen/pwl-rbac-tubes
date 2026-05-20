@@ -6,23 +6,31 @@ export type LoginPayload = {
 };
 
 export type ItemFormData = {
+  code: string;
   name: string;
+  category: string;
   description: string;
   quantity: number;
   location: string;
+  condition: string;
 };
 
 export type InventoryItem = ApiRecord & {
   id?: string | number;
+  code?: string;
   name?: string;
   nama?: string;
   itemName?: string;
+  category?: string;
+  kategori?: string;
   description?: string;
   deskripsi?: string;
   quantity?: number;
   stok?: number;
   location?: string;
   lokasi?: string;
+  condition?: string;
+  kondisi?: string;
 };
 
 export type ActiveUser = ApiRecord & {

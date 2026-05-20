@@ -5,33 +5,31 @@ import {
   assignPermissionToRole,
   assignRoleToUser,
   clearToken,
-  createPermission,
   createItem,
   createRole,
   createUser,
   deleteItem,
-  getDemoRole,
   getItems,
   getMe,
   getPermissions,
   getRoles,
   getToken,
   getUsers,
-  isDemoToken,
   login,
-  saveDemoToken,
   updateItem,
 } from "./api";
-import type { DemoRole } from "./api";
 import type { ActiveUser, InventoryItem, ItemFormData } from "./types";
 
 type MetricKey = "user" | "role" | "items" | "rbac";
 
 const emptyForm: ItemFormData = {
+  code: "",
   name: "",
+  category: "",
   description: "",
   quantity: 0,
   location: "",
+  condition: "",
 };
 
 const emptyUserForm = {
@@ -44,74 +42,6 @@ const emptyRoleForm = {
   name: "",
   description: "",
 };
-
-const emptyPermissionForm = {
-  name: "",
-  description: "",
-};
-
-const permissionOptions = [
-  { name: "item:create", description: "Boleh menambah data inventaris" },
-  { name: "item:read", description: "Boleh melihat data inventaris" },
-  { name: "item:update", description: "Boleh mengubah data inventaris" },
-  { name: "item:delete", description: "Boleh menghapus data inventaris" },
-  { name: "user:create", description: "Boleh menambah user" },
-  { name: "user:read", description: "Boleh melihat daftar user" },
-  { name: "user:update", description: "Boleh mengubah data user" },
-  { name: "user:delete", description: "Boleh menghapus user" },
-  { name: "role:manage", description: "Boleh mengelola role" },
-  { name: "permission:manage", description: "Boleh mengelola permission" },
-];
-
-const demoProfiles: Record<DemoRole, ActiveUser> = {
-  superadmin: {
-    id: 1,
-    name: "Demo Superadmin",
-    email: "superadmin@inventaris.test",
-    roles: ["superadmin"],
-    permissions: [
-      "item:create",
-      "item:read",
-      "item:update",
-      "item:delete",
-      "rbac:read",
-      "user:read",
-      "role:read",
-      "permission:read",
-    ],
-  },
-  admin: {
-    id: 2,
-    name: "Demo Admin",
-    email: "admin@inventaris.test",
-    roles: ["admin"],
-    permissions: ["item:create", "item:read", "item:update", "item:delete"],
-  },
-  user: {
-    id: 3,
-    name: "Demo User",
-    email: "user@inventaris.test",
-    roles: ["user"],
-    permissions: ["item:read"],
-  },
-};
-
-const demoItems: InventoryItem[] = [
-  {
-    id: 1,
-    name: "Laptop Lab",
-    description: "Lenovo ThinkPad untuk praktikum",
-    quantity: 12,
-    location: "Lab Komputer",
-  },
-  {
-    id: 2,
-    name: "Proyektor",
-    description: "Epson ruang kelas",
-    quantity: 3,
-    location: "Ruang Dosen",
-  },
-];
 
 function readField(item: InventoryItem, keys: string[], fallback = "-") {
   for (const key of keys) {
@@ -138,8 +68,7 @@ function formatList(values?: Array<string | Record<string, unknown>>) {
     .join(", ");
 }
 
-function getRoleName(user: ActiveUser | null, token: string | null) {
-  if (isDemoToken(token)) return getDemoRole(token);
+function getRoleName(user: ActiveUser | null) {
   if (typeof user?.role === "string") return user.role.toLowerCase();
 
   const firstRole = user?.roles?.[0];
@@ -209,7 +138,6 @@ export default function App() {
   const [permissionsList, setPermissionsList] = useState<unknown[]>([]);
   const [userForm, setUserForm] = useState(emptyUserForm);
   const [roleForm, setRoleForm] = useState(emptyRoleForm);
-  const [permissionForm, setPermissionForm] = useState(emptyPermissionForm);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [selectedPermissionRoleId, setSelectedPermissionRoleId] = useState("");
@@ -223,17 +151,6 @@ export default function App() {
     setAppError("");
 
     try {
-      if (isDemoToken(token)) {
-        const role = getDemoRole(token);
-        setUser(demoProfiles[role]);
-        setItems((current) => (current.length ? current : demoItems));
-        setRbacData(role === "superadmin" ? { users: 3, roles: 3, permissions: 8 } : { users: 0, roles: 0, permissions: 0 });
-        setUsersList(role === "superadmin" ? demoProfiles ? Object.values(demoProfiles) : [] : []);
-        setRolesList(role === "superadmin" ? ["superadmin", "admin", "user"] : []);
-        setPermissionsList(role === "superadmin" ? demoProfiles.superadmin.permissions ?? [] : []);
-        return;
-      }
-
       const [me, itemList] = await Promise.all([getMe(), getItems()]);
       setUser(me);
       setItems(Array.isArray(itemList) ? itemList : normalizeCollection(itemList));
@@ -268,7 +185,7 @@ export default function App() {
     return String(user.name ?? user.nama ?? user.email ?? "User");
   }, [user]);
 
-  const activeRole = getRoleName(user, token);
+  const activeRole = getRoleName(user);
   const permissions = getPermissionSet(user);
   const canReadRbac = activeRole === "superadmin" || permissions.has("rbac:read");
   const canCreateItem = activeRole === "superadmin" || activeRole === "admin" || permissions.has("item:create");
@@ -310,7 +227,7 @@ export default function App() {
       rows: [
         ["Nama", userName],
         ["Email", user?.email ? String(user.email) : "-"],
-        ["Sumber", isDemoToken(token) ? "Akun demo frontend" : "Endpoint /auth/me"],
+        ["Sumber", "Endpoint /auth/me"],
       ],
     },
     role: {
@@ -356,14 +273,6 @@ export default function App() {
     }
   }
 
-  function handleDemoLogin(role: DemoRole) {
-    saveDemoToken(role);
-    setToken(getToken());
-    setLoginError("");
-    setEmail("");
-    setPassword("");
-  }
-
   async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAppError("");
@@ -394,24 +303,6 @@ export default function App() {
     try {
       await createRole(roleForm);
       setRoleForm(emptyRoleForm);
-      await loadDashboard();
-    } catch (error) {
-      setAppError(errorText(error));
-    }
-  }
-
-  async function handleCreatePermission(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAppError("");
-
-    if (!canReadRbac) {
-      setAppError("Hanya superadmin yang dapat menambah permission.");
-      return;
-    }
-
-    try {
-      await createPermission(permissionForm);
-      setPermissionForm(emptyPermissionForm);
       await loadDashboard();
     } catch (error) {
       setAppError(errorText(error));
@@ -466,21 +357,6 @@ export default function App() {
         return;
       }
 
-      if (isDemoToken(token)) {
-        if (editingId) {
-          setItems((current) =>
-            current.map((item) => (itemId(item) === editingId ? { ...item, id: editingId, ...form } : item)),
-          );
-        } else {
-          setItems((current) => [{ id: Date.now(), ...form }, ...current]);
-        }
-
-        setForm(emptyForm);
-        setEditingId(null);
-        setIsFormOpen(false);
-        return;
-      }
-
       if (editingId) {
         await updateItem(editingId, form);
       } else {
@@ -511,10 +387,13 @@ export default function App() {
     setEditingId(id);
     setIsFormOpen(true);
     setForm({
+      code: readField(item, ["code"], ""),
       name: readField(item, ["name", "nama", "itemName"], ""),
+      category: readField(item, ["category", "kategori"], ""),
       description: readField(item, ["description", "deskripsi"], ""),
       quantity: Number(readField(item, ["quantity", "stok"], "0")),
       location: readField(item, ["location", "lokasi"], ""),
+      condition: readField(item, ["condition", "kondisi"], ""),
     });
   }
 
@@ -551,11 +430,6 @@ export default function App() {
     if (!approved) return;
 
     try {
-      if (isDemoToken(token)) {
-        setItems((current) => current.filter((currentItem) => itemId(currentItem) !== id));
-        return;
-      }
-
       await deleteItem(id);
       await loadDashboard();
     } catch (error) {
@@ -611,17 +485,6 @@ export default function App() {
             <button disabled={isLoggingIn} type="submit">
               {isLoggingIn ? "Memproses..." : "Login"}
             </button>
-            <div className="demo-grid">
-              <button className="secondary" onClick={() => handleDemoLogin("superadmin")} type="button">
-                Demo Superadmin
-              </button>
-              <button className="secondary" onClick={() => handleDemoLogin("admin")} type="button">
-                Demo Admin
-              </button>
-              <button className="secondary" onClick={() => handleDemoLogin("user")} type="button">
-                Demo User
-              </button>
-            </div>
           </form>
         </section>
       </main>
@@ -759,33 +622,6 @@ export default function App() {
               <button type="submit">Tambah Role</button>
             </form>
 
-            <form className="rbac-form" onSubmit={handleCreatePermission}>
-              <h3>Tambah Permission</h3>
-              <select
-                onChange={(event) => {
-                  const selected = permissionOptions.find((option) => option.name === event.target.value);
-                  setPermissionForm({
-                    name: event.target.value,
-                    description: selected?.description ?? "",
-                  });
-                }}
-                required
-                value={permissionForm.name}
-              >
-                <option value="">Pilih permission</option>
-                {permissionOptions.map((option) => (
-                  <option key={option.name} value={option.name}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                onChange={(event) => setPermissionForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder="Deskripsi"
-                value={permissionForm.description}
-              />
-              <button type="submit">Tambah Permission</button>
-            </form>
           </div>
 
           <div className="rbac-grid two">
@@ -866,6 +702,16 @@ export default function App() {
             </div>
 
             <label>
+              Kode barang
+              <input
+                onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
+                placeholder="Contoh: ITM-001"
+                required
+                value={form.code}
+              />
+            </label>
+
+            <label>
               Nama barang
               <input
                 onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
@@ -874,6 +720,33 @@ export default function App() {
                 value={form.name}
               />
             </label>
+
+            <div className="form-row">
+              <label>
+                Kategori
+                <input
+                  onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
+                  placeholder="Elektronik"
+                  required
+                  value={form.category}
+                />
+              </label>
+
+              <label>
+                Kondisi
+                <select
+                  onChange={(event) => setForm((current) => ({ ...current, condition: event.target.value }))}
+                  required
+                  value={form.condition}
+                >
+                  <option value="">Pilih kondisi</option>
+                  <option value="Baik">Baik</option>
+                  <option value="Rusak ringan">Rusak ringan</option>
+                  <option value="Rusak berat">Rusak berat</option>
+                  <option value="Perlu perbaikan">Perlu perbaikan</option>
+                </select>
+              </label>
+            </div>
 
             <label>
               Deskripsi
@@ -902,6 +775,7 @@ export default function App() {
                 <input
                   onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
                   placeholder="Gudang A"
+                  required
                   value={form.location}
                 />
               </label>
@@ -982,10 +856,13 @@ export default function App() {
             <table>
               <thead>
                 <tr>
+                  <th>Kode</th>
                   <th>Nama</th>
+                  <th>Kategori</th>
                   <th>Deskripsi</th>
                   <th>Jumlah</th>
                   <th>Lokasi</th>
+                  <th>Kondisi</th>
                   {canManageItems ? <th>Aksi</th> : null}
                 </tr>
               </thead>
@@ -993,10 +870,13 @@ export default function App() {
                 {items.length ? (
                   items.map((item, index) => (
                     <tr key={String(itemId(item) ?? index)}>
+                      <td>{readField(item, ["code"])}</td>
                       <td>{readField(item, ["name", "nama", "itemName"])}</td>
+                      <td>{readField(item, ["category", "kategori"])}</td>
                       <td>{readField(item, ["description", "deskripsi"])}</td>
                       <td>{readField(item, ["quantity", "stok"], "0")}</td>
                       <td>{readField(item, ["location", "lokasi"])}</td>
+                      <td>{readField(item, ["condition", "kondisi"])}</td>
                       {canManageItems ? (
                         <td>
                           <div className="table-actions">
@@ -1017,7 +897,7 @@ export default function App() {
                   ))
                 ) : (
                   <tr>
-                    <td className="empty" colSpan={canManageItems ? 5 : 4}>
+                    <td className="empty" colSpan={canManageItems ? 8 : 7}>
                       Belum ada data inventaris.
                     </td>
                   </tr>
