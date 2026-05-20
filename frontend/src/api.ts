@@ -174,13 +174,6 @@ export function createRole(payload: { name: string; description?: string }) {
   });
 }
 
-export function createPermission(payload: { name: string; description?: string }) {
-  return apiFetch<unknown>("/permissions", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
 export function assignRoleToUser(userId: string | number, roleId: string | number) {
   return apiFetch<unknown>(`/users/${userId}/roles`, {
     method: "POST",
