@@ -10,19 +10,15 @@ import {
   createRole,
   createUser,
   deleteItem,
-  getDemoRole,
   getItems,
   getMe,
   getPermissions,
   getRoles,
   getToken,
   getUsers,
-  isDemoToken,
   login,
-  saveDemoToken,
   updateItem,
 } from "./api";
-import type { DemoRole } from "./api";
 import type { ActiveUser, InventoryItem, ItemFormData } from "./types";
 
 type MetricKey = "user" | "role" | "items" | "rbac";
@@ -63,56 +59,6 @@ const permissionOptions = [
   { name: "permission:manage", description: "Boleh mengelola permission" },
 ];
 
-const demoProfiles: Record<DemoRole, ActiveUser> = {
-  superadmin: {
-    id: 1,
-    name: "Demo Superadmin",
-    email: "superadmin@inventaris.test",
-    roles: ["superadmin"],
-    permissions: [
-      "item:create",
-      "item:read",
-      "item:update",
-      "item:delete",
-      "rbac:read",
-      "user:read",
-      "role:read",
-      "permission:read",
-    ],
-  },
-  admin: {
-    id: 2,
-    name: "Demo Admin",
-    email: "admin@inventaris.test",
-    roles: ["admin"],
-    permissions: ["item:create", "item:read", "item:update", "item:delete"],
-  },
-  user: {
-    id: 3,
-    name: "Demo User",
-    email: "user@inventaris.test",
-    roles: ["user"],
-    permissions: ["item:read"],
-  },
-};
-
-const demoItems: InventoryItem[] = [
-  {
-    id: 1,
-    name: "Laptop Lab",
-    description: "Lenovo ThinkPad untuk praktikum",
-    quantity: 12,
-    location: "Lab Komputer",
-  },
-  {
-    id: 2,
-    name: "Proyektor",
-    description: "Epson ruang kelas",
-    quantity: 3,
-    location: "Ruang Dosen",
-  },
-];
-
 function readField(item: InventoryItem, keys: string[], fallback = "-") {
   for (const key of keys) {
     const value = item[key];
@@ -138,8 +84,7 @@ function formatList(values?: Array<string | Record<string, unknown>>) {
     .join(", ");
 }
 
-function getRoleName(user: ActiveUser | null, token: string | null) {
-  if (isDemoToken(token)) return getDemoRole(token);
+function getRoleName(user: ActiveUser | null) {
   if (typeof user?.role === "string") return user.role.toLowerCase();
 
   const firstRole = user?.roles?.[0];
@@ -223,17 +168,6 @@ export default function App() {
     setAppError("");
 
     try {
-      if (isDemoToken(token)) {
-        const role = getDemoRole(token);
-        setUser(demoProfiles[role]);
-        setItems((current) => (current.length ? current : demoItems));
-        setRbacData(role === "superadmin" ? { users: 3, roles: 3, permissions: 8 } : { users: 0, roles: 0, permissions: 0 });
-        setUsersList(role === "superadmin" ? demoProfiles ? Object.values(demoProfiles) : [] : []);
-        setRolesList(role === "superadmin" ? ["superadmin", "admin", "user"] : []);
-        setPermissionsList(role === "superadmin" ? demoProfiles.superadmin.permissions ?? [] : []);
-        return;
-      }
-
       const [me, itemList] = await Promise.all([getMe(), getItems()]);
       setUser(me);
       setItems(Array.isArray(itemList) ? itemList : normalizeCollection(itemList));
@@ -268,7 +202,7 @@ export default function App() {
     return String(user.name ?? user.nama ?? user.email ?? "User");
   }, [user]);
 
-  const activeRole = getRoleName(user, token);
+  const activeRole = getRoleName(user);
   const permissions = getPermissionSet(user);
   const canReadRbac = activeRole === "superadmin" || permissions.has("rbac:read");
   const canCreateItem = activeRole === "superadmin" || activeRole === "admin" || permissions.has("item:create");
@@ -310,7 +244,7 @@ export default function App() {
       rows: [
         ["Nama", userName],
         ["Email", user?.email ? String(user.email) : "-"],
-        ["Sumber", isDemoToken(token) ? "Akun demo frontend" : "Endpoint /auth/me"],
+        ["Sumber", "Endpoint /auth/me"],
       ],
     },
     role: {
@@ -354,14 +288,6 @@ export default function App() {
     } finally {
       setIsLoggingIn(false);
     }
-  }
-
-  function handleDemoLogin(role: DemoRole) {
-    saveDemoToken(role);
-    setToken(getToken());
-    setLoginError("");
-    setEmail("");
-    setPassword("");
   }
 
   async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
@@ -466,21 +392,6 @@ export default function App() {
         return;
       }
 
-      if (isDemoToken(token)) {
-        if (editingId) {
-          setItems((current) =>
-            current.map((item) => (itemId(item) === editingId ? { ...item, id: editingId, ...form } : item)),
-          );
-        } else {
-          setItems((current) => [{ id: Date.now(), ...form }, ...current]);
-        }
-
-        setForm(emptyForm);
-        setEditingId(null);
-        setIsFormOpen(false);
-        return;
-      }
-
       if (editingId) {
         await updateItem(editingId, form);
       } else {
@@ -551,11 +462,6 @@ export default function App() {
     if (!approved) return;
 
     try {
-      if (isDemoToken(token)) {
-        setItems((current) => current.filter((currentItem) => itemId(currentItem) !== id));
-        return;
-      }
-
       await deleteItem(id);
       await loadDashboard();
     } catch (error) {
@@ -611,17 +517,6 @@ export default function App() {
             <button disabled={isLoggingIn} type="submit">
               {isLoggingIn ? "Memproses..." : "Login"}
             </button>
-            <div className="demo-grid">
-              <button className="secondary" onClick={() => handleDemoLogin("superadmin")} type="button">
-                Demo Superadmin
-              </button>
-              <button className="secondary" onClick={() => handleDemoLogin("admin")} type="button">
-                Demo Admin
-              </button>
-              <button className="secondary" onClick={() => handleDemoLogin("user")} type="button">
-                Demo User
-              </button>
-            </div>
           </form>
         </section>
       </main>

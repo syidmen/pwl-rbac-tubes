@@ -212,16 +212,6 @@ h2 {
   gap: 16px;
 }
 
-.demo-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.demo-grid button {
-  padding: 0 12px;
-}
-
 .alert {
   border: 1px solid #e7a8a0;
   border-radius: 8px;
@@ -655,8 +645,7 @@ tr:last-child td {
   }
 
   .topbar-actions,
-  .button-row,
-  .demo-grid {
+  .button-row {
     display: grid;
     grid-template-columns: 1fr;
   }

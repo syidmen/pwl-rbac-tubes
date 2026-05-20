@@ -1,10 +1,6 @@
 import type { ActiveUser, InventoryItem, ItemFormData, LoginPayload } from "./types";
 
 const TOKEN_KEY = "pwl_rbac_token";
-export type DemoRole = "superadmin" | "admin" | "user";
-
-export const DEMO_TOKEN = "demo-frontend-token";
-const DEMO_TOKEN_PREFIX = `${DEMO_TOKEN}:`;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 type RequestOptions = RequestInit & {
@@ -25,26 +21,6 @@ export class ApiError extends Error {
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
-}
-
-export function isDemoToken(token = getToken()) {
-  return token === DEMO_TOKEN || Boolean(token?.startsWith(DEMO_TOKEN_PREFIX));
-}
-
-export function getDemoRole(token = getToken()): DemoRole {
-  if (token === DEMO_TOKEN) return "admin";
-
-  const role = token?.replace(DEMO_TOKEN_PREFIX, "");
-
-  if (role === "superadmin" || role === "admin" || role === "user") {
-    return role;
-  }
-
-  return "admin";
-}
-
-export function saveDemoToken(role: DemoRole) {
-  saveToken(`${DEMO_TOKEN_PREFIX}${role}`);
 }
 
 export function saveToken(token: string) {
