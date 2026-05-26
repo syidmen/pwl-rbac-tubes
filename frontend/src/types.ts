@@ -5,6 +5,18 @@ export type LoginPayload = {
   password: string;
 };
 
+export type RegisterPayload = {
+  username: string;
+  email: string;
+  password: string;
+};
+
+export type UpdateProfilePayload = {
+  username?: string;
+  email?: string;
+  password?: string;
+};
+
 export type ItemFormData = {
   code: string;
   name: string;
@@ -13,6 +25,7 @@ export type ItemFormData = {
   quantity: number;
   location: string;
   condition: string;
+  status: string;
 };
 
 export type InventoryItem = ApiRecord & {
@@ -31,6 +44,7 @@ export type InventoryItem = ApiRecord & {
   lokasi?: string;
   condition?: string;
   kondisi?: string;
+  status?: string;
 };
 
 export type ActiveUser = ApiRecord & {

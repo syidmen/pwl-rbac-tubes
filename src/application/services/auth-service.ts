@@ -96,6 +96,87 @@ export class AuthService {
     };
   }
 
+  static async register(input: { username: string; email: string; password: string }) {
+    const existingUser = await db.user.findUnique({
+      where: { email: input.email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      throw new Error("Email sudah digunakan");
+    }
+
+    const userRole = await db.role.upsert({
+      where: { name: "USER" },
+      update: {},
+      create: { name: "USER", description: "User read-only" },
+    });
+
+    const readPermission = await db.permission.upsert({
+      where: { name: "item:read" },
+      update: {},
+      create: { name: "item:read", description: "Boleh melihat data inventaris" },
+    });
+
+    await db.rolePermission.upsert({
+      where: {
+        roleId_permissionId: {
+          roleId: userRole.id,
+          permissionId: readPermission.id,
+        },
+      },
+      update: {},
+      create: {
+        roleId: userRole.id,
+        permissionId: readPermission.id,
+      },
+    });
+
+    const user = await db.user.create({
+      data: {
+        username: input.username,
+        email: input.email,
+        password: await this.hashPassword(input.password),
+        roles: {
+          create: {
+            roleId: userRole.id,
+          },
+        },
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+      },
+    });
+
+    return {
+      message: "Registrasi berhasil",
+      user,
+    };
+  }
+
+  static async updateProfile(userId: string, input: { username?: string; email?: string; password?: string }) {
+    const updatedUser = await db.user.update({
+      where: { id: userId },
+      data: {
+        username: input.username,
+        email: input.email,
+        password: input.password ? await this.hashPassword(input.password) : undefined,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+      },
+    });
+
+    return {
+      message: "Profil berhasil diperbarui",
+      user: updatedUser,
+    };
+  }
+
   /**
    * Verifikasi dan baca isi dari token JWT
    */

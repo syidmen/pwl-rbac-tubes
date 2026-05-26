@@ -65,11 +65,12 @@ model RolePermission {
 model Item {
   id          String   @id @default(cuid())
   code        String   @unique
-  name        String
+  name        String?
   category    String
   location    String
   quantity    Int
   condition   String
+  status      String   @default("Tersedia")
   description String?
 
   createdAt   DateTime @default(now())
