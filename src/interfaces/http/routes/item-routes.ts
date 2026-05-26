@@ -28,6 +28,15 @@ function getId(params: Record<string, string | undefined>): string {
   return id;
 }
 
+function requiredPositiveNumber(value: unknown, field: string): number {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    throw new HttpError(422, `${field} harus lebih dari 0`);
+  }
+
+  return numberValue;
+}
+
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
 async function handleListItems(_req: Request) {
@@ -51,7 +60,8 @@ async function handleCreateItem(request: Request) {
     category:    requiredString(body.category,  "category"),
     location:    requiredString(body.location,  "location"),
     condition:   requiredString(body.condition, "condition"),
-    quantity:    Number(body.quantity ?? 0),
+    status:      requiredString(body.status,    "status"),
+    quantity:    requiredPositiveNumber(body.quantity, "quantity"),
     description: typeof body.description === "string" ? body.description : undefined,
   };
 
@@ -74,7 +84,8 @@ async function handleUpdateItem(request: Request, params: Record<string, string 
   if (body.category    !== undefined) input.category    = requiredString(body.category    as string, "category");
   if (body.location    !== undefined) input.location    = requiredString(body.location    as string, "location");
   if (body.condition   !== undefined) input.condition   = requiredString(body.condition   as string, "condition");
-  if (body.quantity    !== undefined) input.quantity    = Number(body.quantity);
+  if (body.status      !== undefined) input.status      = requiredString(body.status      as string, "status");
+  if (body.quantity    !== undefined) input.quantity    = requiredPositiveNumber(body.quantity, "quantity");
   if (body.description !== undefined) input.description = String(body.description);
 
   const item = await updateItem(id, input);
@@ -122,6 +133,11 @@ export const itemRoutes = [
   },
   {
     method:  "PATCH",
+    pattern: /^\/items\/(?<id>[^/]+)$/,
+    handler: protectedHandler("item:update", handleUpdateItem),
+  },
+  {
+    method:  "PUT",
     pattern: /^\/items\/(?<id>[^/]+)$/,
     handler: protectedHandler("item:update", handleUpdateItem),
   },

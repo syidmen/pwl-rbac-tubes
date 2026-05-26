@@ -1,4 +1,4 @@
-import type { ActiveUser, InventoryItem, ItemFormData, LoginPayload } from "./types";
+import type { ActiveUser, InventoryItem, ItemFormData, LoginPayload, RegisterPayload, UpdateProfilePayload } from "./types";
 
 const TOKEN_KEY = "pwl_rbac_token";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -119,8 +119,24 @@ export async function login(payload: LoginPayload) {
   return token;
 }
 
+export function register(payload: RegisterPayload) {
+  return apiFetch<unknown>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    auth: false,
+  });
+}
+
 export async function getMe() {
   const response = await apiFetch<unknown>("/auth/me");
+  return extractUser(response);
+}
+
+export async function updateProfile(payload: UpdateProfilePayload) {
+  const response = await apiFetch<unknown>("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
   return extractUser(response);
 }
 
@@ -137,7 +153,7 @@ export function createItem(payload: ItemFormData) {
 
 export function updateItem(id: string | number, payload: ItemFormData) {
   return apiFetch<InventoryItem>(`/items/${id}`, {
-    method: "PATCH",
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 }
@@ -167,10 +183,22 @@ export function createUser(payload: { username: string; email: string; password:
   });
 }
 
+export function deleteUser(id: string | number) {
+  return apiFetch<void>(`/users/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export function createRole(payload: { name: string; description?: string }) {
   return apiFetch<unknown>("/roles", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function deleteRole(id: string | number) {
+  return apiFetch<void>(`/roles/${id}`, {
+    method: "DELETE",
   });
 }
 
@@ -185,5 +213,11 @@ export function assignPermissionToRole(roleId: string | number, permissionId: st
   return apiFetch<unknown>(`/roles/${roleId}/permissions`, {
     method: "POST",
     body: JSON.stringify({ permissionId }),
+  });
+}
+
+export function removePermissionFromRole(roleId: string | number, permissionId: string | number) {
+  return apiFetch<void>(`/roles/${roleId}/permissions/${permissionId}`, {
+    method: "DELETE",
   });
 }

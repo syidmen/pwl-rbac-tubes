@@ -9,6 +9,7 @@ export type CreateItemInput = {
   location: string;
   quantity: number;
   condition: string;
+  status: string;
   description?: string;
 };
 

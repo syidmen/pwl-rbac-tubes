@@ -2,7 +2,8 @@ import * as authRouteModule from "./routes/auth-routes";
 import * as itemRouteModule from "./routes/item-routes";
 import { rbacRoutes } from "./routes/rbac-routes";
 import { error, json } from "./response";
-import { HttpError } from "./errors";
+import { ForbiddenError, HttpError } from "./errors";
+import { authMiddleware } from "./middleware/auth-middleware";
 
 export type RouteParams = Record<string, string>;
 export type RouteHandler = (
@@ -50,7 +51,8 @@ export async function handleRequest(request: Request): Promise<Response> {
       const match = route.pattern.exec(url.pathname);
       if (!match) continue;
 
-      const response = await route.handler(request, match.groups ?? {});
+      const guardedRequest = isAdminPath(url.pathname) ? await requireAdmin(request) : request;
+      const response = await route.handler(guardedRequest, match.groups ?? {});
       return withCors(response);
     }
 
@@ -58,6 +60,27 @@ export async function handleRequest(request: Request): Promise<Response> {
   } catch (errorValue) {
     return withCors(transformError(errorValue));
   }
+}
+
+async function requireAdmin(request: Request) {
+  const authRequest = await authMiddleware(request);
+  const roles = Array.isArray(authRequest.user.roles) ? authRequest.user.roles : [];
+  const normalizedRoles = roles.map((role) => String(role).toLowerCase());
+
+  if (!normalizedRoles.includes("admin")) {
+    throw new ForbiddenError("Hanya admin yang boleh mengakses endpoint ini");
+  }
+
+  return authRequest;
+}
+
+function isAdminPath(pathname: string) {
+  return pathname === "/users"
+    || pathname.startsWith("/users/")
+    || pathname === "/roles"
+    || pathname.startsWith("/roles/")
+    || pathname === "/permissions"
+    || pathname.startsWith("/permissions/");
 }
 
 function loadRoutes(module: unknown, propertyNames: string[]): RouteDefinition[] {

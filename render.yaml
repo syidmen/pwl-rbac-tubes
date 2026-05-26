@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: pwl-rbac-api
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_EXPIRES_IN_SECONDS
+        value: "86400"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false

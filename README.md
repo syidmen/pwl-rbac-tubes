@@ -1,33 +1,63 @@
 # PWL RBAC Tubes
 
-Repo starter untuk kerja kelompok RBAC dengan studi kasus **Inventaris Barang Sederhana**. Setiap anggota kerja di branch masing-masing, lalu membuat pull request ke `review`.
+Sistem Informasi Inventaris Barang Sekolah SMA berbasis web untuk UAS Pemrograman Web Lanjut. Aplikasi ini menggunakan React + Vite untuk frontend, Bun REST API untuk backend, Prisma untuk database, JWT untuk autentikasi, dan RBAC untuk pembatasan hak akses.
 
-## Cara Mulai
-
-```bash
-bun install
-bunx prisma generate
-bunx prisma migrate dev
-bun prisma/seed.ts
-bun run dev
-```
-
-Backend berjalan di:
+## Struktur Proyek
 
 ```text
-http://localhost:3000
+pwl-rbac-tubes/
+|-- src/              # Backend Bun REST API
+|-- frontend/         # Frontend React + Vite
+|-- prisma/           # Prisma schema, migration, dan seed
+|-- docs/             # Dokumen tugas dan analisis kebutuhan
+|-- Dockerfile        # Konfigurasi backend untuk Render
+|-- render.yaml       # Blueprint Render
+|-- vercel.json       # Konfigurasi frontend untuk Vercel
+|-- package.json
+`-- vite.config.ts
 ```
 
-Frontend dijalankan di terminal lain:
+Catatan: folder `frontend/` memang berada di luar `src/`. `src/` dipakai khusus untuk backend, sedangkan `frontend/` dipakai khusus untuk React.
 
-```bash
-bun run frontend:dev
-```
+## Fitur
 
-Biasanya frontend berjalan di:
+- Login JWT.
+- Registrasi akun user baru.
+- Dashboard Admin.
+- Dashboard User.
+- Edit profil pribadi.
+- CRUD inventaris barang.
+- User read-only untuk data inventaris.
+- RBAC role dan permission.
+- Manajemen user dan role untuk admin.
+- Assign role ke user.
+- Assign permission ke role.
+- Statistik ringkas inventaris.
+- Searching dan filtering tabel inventaris.
+- Pagination tabel inventaris.
+- Validasi jumlah item harus lebih dari 0.
+- Pilihan lokasi inventaris menggunakan dropdown.
+- Admin dapat menambah kategori barang dan ruangan.
+
+## Role dan Hak Akses
 
 ```text
-http://localhost:5173
+ADMIN
+- Login
+- Dashboard Admin
+- CRUD item
+- Manajemen user
+- Manajemen role
+- Assign role ke user
+- Assign permission ke role
+- Melihat data user/role/permission
+
+USER
+- Register
+- Login
+- Dashboard User
+- Edit profil pribadi
+- Melihat data item secara read-only
 ```
 
 ## Setup Environment
@@ -46,58 +76,43 @@ Buat file `frontend/.env`:
 VITE_API_BASE_URL=http://localhost:3000
 ```
 
-Jika frontend menampilkan `Failed to fetch`, pastikan backend `bun run dev` masih hidup dan `frontend/.env` sudah benar.
-
-## Setup Database dan Seed
-
-Generate Prisma Client:
+## Install dan Setup Database
 
 ```bash
+bun install
 bunx prisma generate
-```
-
-Jalankan migration:
-
-```bash
 bunx prisma migrate dev
+bun prisma/seed.ts
 ```
 
-Jika database lama tidak cocok dengan schema, untuk kebutuhan demo bisa reset database:
+Jika database lama tidak cocok dengan schema, gunakan reset untuk kebutuhan demo:
 
 ```bash
 bunx prisma migrate reset
 ```
 
-Perintah di atas akan menghapus isi database, menjalankan migration ulang, lalu menjalankan seed.
+Perintah reset akan menghapus isi database, menjalankan migration ulang, lalu menjalankan seed.
 
-Jika ingin seed manual:
-
-```bash
-bun prisma/seed.ts
-```
-
-Output berhasil:
+Output seed berhasil:
 
 ```text
-Seed selesai: Superadmin, Admin, dan permissions berhasil dibuat.
+Seed selesai: Admin, User, dan permissions berhasil dibuat.
 ```
 
 ## Akun Seed
 
-Superadmin:
-
 ```text
-email: superadmin@example.com
-password: password123
-role: SUPERADMIN
-```
-
-Admin:
-
-```text
+Admin
 email: admin@example.com
 password: password123
 role: ADMIN
+```
+
+```text
+User
+email: user@example.com
+password: password123
+role: USER
 ```
 
 Permission bawaan:
@@ -109,7 +124,73 @@ item:update
 item:delete
 ```
 
-Kedua akun seed diberi semua permission item.
+Admin diberi semua permission item. User hanya diberi `item:read`.
+
+## Menjalankan Aplikasi Lokal
+
+Terminal 1 untuk backend:
+
+```bash
+bun run dev
+```
+
+Backend berjalan di:
+
+```text
+http://localhost:3000
+```
+
+Terminal 2 untuk frontend:
+
+```bash
+bun run frontend:dev
+```
+
+Frontend biasanya berjalan di:
+
+```text
+http://localhost:5173
+```
+
+Jika frontend menampilkan `Failed to fetch`, pastikan backend masih hidup dan `frontend/.env` mengarah ke `http://localhost:3000`.
+
+## Endpoint Utama
+
+Auth:
+
+```text
+POST /auth/register
+POST /auth/login
+GET /auth/me
+PATCH /auth/me
+```
+
+Item:
+
+```text
+GET /items
+POST /items
+GET /items/:id
+PUT /items/:id
+PATCH /items/:id
+DELETE /items/:id
+```
+
+RBAC:
+
+```text
+GET /users
+POST /users
+PATCH /users/:id
+DELETE /users/:id
+GET /roles
+POST /roles
+PATCH /roles/:id
+DELETE /roles/:id
+GET /permissions
+POST /users/:id/roles
+POST /roles/:id/permissions
+```
 
 ## Alur Testing
 
@@ -119,97 +200,98 @@ Jalankan validasi kode:
 bun run typecheck
 bun run frontend:typecheck
 bun run frontend:build
+bunx prisma validate
 ```
 
-Jalankan backend di terminal pertama:
+Jalankan backend:
 
 ```bash
 bun run dev
 ```
 
-Jalankan test API di terminal kedua:
+Jalankan test API di terminal lain:
 
 ```bash
 bun test-api.ts
 ```
 
-Tes manual di browser:
+Tes manual:
 
 ```text
 http://localhost:3000
+http://localhost:5173
 ```
 
-Tes frontend:
+Checklist frontend:
 
-```bash
-bun run frontend:dev
-```
+- Login sebagai admin.
+- Login sebagai user.
+- Registrasi akun user baru.
+- Dashboard Admin tampil untuk admin.
+- Dashboard User tampil untuk user.
+- User hanya bisa melihat item.
+- Admin bisa tambah, edit, dan hapus item.
+- Jumlah item tidak boleh 0.
+- Lokasi item dipilih dari dropdown.
+- User bisa edit profil pribadi.
+- Searching item berdasarkan keterangan.
+- Filtering item berdasarkan kategori, kondisi, dan status.
+- Pagination item dengan pilihan jumlah data per halaman.
+- Admin bisa assign role ke user.
+- Admin bisa assign beberapa permission sekaligus ke role.
 
-Login menggunakan akun seed, lalu coba:
+## Deployment
 
-- dashboard tampil
-- tambah item
-- edit item
-- hapus item
-- tambah user
-- tambah role
-- tambah permission
-- assign role ke user
-- assign permission ke role
+Frontend disiapkan untuk Vercel.
 
-## Aturan Singkat
-
-- Jangan push langsung ke `main`.
-- Jangan push langsung ke `review` kecuali Lead/Admin.
-- Satu anggota pegang area file masing-masing.
-- Jika perlu mengubah file anggota lain, koordinasi dulu.
-- PR anggota masuk ke branch `review`.
-- Testing akhir dilakukan oleh Lead/Admin di branch `review`.
-- Jika sudah aman, Lead/Admin merge `review` ke `main`.
-
-## Branch
+Pengaturan Vercel:
 
 ```text
-main
-review
-feature/project-lead
-feature/database-prisma
-feature/auth-jwt
-feature/rbac-service
-feature/middleware-security
-feature/domain-api
-feature/frontend
+Build Command: bun run frontend:build
+Output Directory: dist/frontend
+Install Command: bun install
 ```
 
-Alur branch:
+Environment variable frontend:
+
+```env
+VITE_API_BASE_URL=https://URL-BACKEND-RENDER
+```
+
+Backend disiapkan untuk Render menggunakan `Dockerfile` dan `render.yaml`.
+
+Environment variable backend di Render:
+
+```env
+DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/DATABASE"
+JWT_SECRET="ganti-dengan-secret-production"
+JWT_EXPIRES_IN_SECONDS=86400
+```
+
+Setelah deploy, isi link production:
 
 ```text
-feature/* -> review -> main
+Frontend Vercel: -
+Backend Render: -
 ```
 
-## Pembagian Tugas
+## Dokumentasi
 
-- Anggota 1: Project Lead/Admin, setup repo, review PR, testing akhir.
-- Anggota 2: Database dan Prisma.
-- Anggota 3: Auth dan JWT.
-- Anggota 4: RBAC service.
-- Anggota 5: Router, middleware, response, error handling.
-- Anggota 6: API inventaris barang.
-- Anggota 7: Frontend lengkap.
+Analisis kebutuhan sistem tersedia di:
 
-Detail tugas ada di:
+```text
+docs/ANALISIS-KEBUTUHAN.md
+```
+
+Dokumen pembagian tugas tersedia di:
 
 ```text
 docs/tugas/
 ```
 
-## Catatan Testing
-
-Anggota cukup memastikan kodenya rapi sebelum push. Testing integrasi akhir dilakukan oleh Lead/Admin setelah semua PR masuk.
-
 ## Studi Kasus
 
-Studi kasus yang dipakai adalah **Inventaris Barang Sederhana**.
+Studi kasus yang dipakai adalah **Inventaris Barang Sekolah SMA**.
 
 Model utama:
 
@@ -217,21 +299,46 @@ Model utama:
 Item
 ```
 
-Endpoint utama:
+Field item:
 
 ```text
-GET /items
-POST /items
-GET /items/:id
-PATCH /items/:id
-DELETE /items/:id
+id
+code
+name
+category
+location
+quantity
+condition
+status
+description
+createdAt
+updatedAt
 ```
 
-Permission item:
+Status barang:
 
 ```text
-item:create
-item:read
-item:update
-item:delete
+Tersedia
+Hilang
+Dipinjam
+```
+
+Kondisi barang:
+
+```text
+Baik
+Rusak
+```
+
+Kategori awal:
+
+```text
+Buku Pelajaran
+Elektronik
+Alat Laboratorium
+Perabot Kelas
+Peralatan Olahraga
+Alat Kebersihan
+ATK
+Sarana Kelas
 ```
