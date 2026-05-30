@@ -279,6 +279,56 @@ h2 {
   backdrop-filter: blur(5px);
 }
 
+.loading-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100vw;
+  height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(11, 38, 80, 0.34);
+  backdrop-filter: blur(5px);
+}
+
+.loading-panel {
+  width: min(320px, calc(100vw - 40px));
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 8px;
+  padding: 24px;
+  color: #0b2650;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(235, 246, 255, 0.96)),
+    #ffffff;
+  box-shadow:
+    0 28px 64px rgba(8, 31, 72, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.loading-panel small {
+  color: #516987;
+  font-weight: 700;
+}
+
+.loading-spinner {
+  width: 34px;
+  height: 34px;
+  border: 4px solid rgba(43, 124, 255, 0.18);
+  border-top-color: #095bd4;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .modal-panel {
   width: min(430px, calc(100vw - 40px));
   max-height: calc(100dvh - 40px);
@@ -623,11 +673,30 @@ h2 {
   font-weight: 700;
 }
 
+.assign-role-hint {
+  margin: -4px 0 2px;
+  color: #0b2650;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.assign-role-hint span {
+  margin-left: 6px;
+  color: #516987;
+  opacity: 0.62;
+  font-weight: 700;
+}
+
 .management-list {
   display: grid;
   gap: 8px;
   max-height: 240px;
   overflow-y: auto;
+}
+
+.management-item {
+  display: grid;
+  gap: 6px;
 }
 
 .management-row {
@@ -648,6 +717,26 @@ h2 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.management-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-description {
+  margin: 0;
+  border: 1px solid rgba(128, 154, 190, 0.16);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #516987;
+  background: rgba(255, 255, 255, 0.62);
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .compact-button {
@@ -673,6 +762,8 @@ h2 {
 
 .icon-pencil,
 .icon-trash,
+.icon-chevron-down,
+.icon-chevron-up,
 .icon-check,
 .icon-alert {
   position: relative;
@@ -695,6 +786,17 @@ h2 {
 .icon-trash {
   -webkit-mask: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 8H17L16.3 20H7.7L7 8Z' fill='black'/%3E%3Cpath d='M5 6H19V8H5V6Z' fill='black'/%3E%3Cpath d='M9 3H15V5H9V3Z' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 8H17L16.3 20H7.7L7 8Z' fill='black'/%3E%3Cpath d='M5 6H19V8H5V6Z' fill='black'/%3E%3Cpath d='M9 3H15V5H9V3Z' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.icon-chevron-down,
+.icon-chevron-up {
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9L12 15L18 9' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9L12 15L18 9' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.icon-chevron-up {
+  transform: rotate(180deg);
 }
 
 .icon-pencil::before {

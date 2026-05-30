@@ -204,19 +204,18 @@ export function deletePermission(id: string) {
   return db.permission.delete({ where: { id } });
 }
 
-export function assignRoleToUser(userId: string, roleId: string) {
-  return db.userRole.upsert({
-    where: {
-      userId_roleId: {
+export async function assignRoleToUser(userId: string, roleId: string) {
+  return db.$transaction(async (tx) => {
+    await tx.userRole.deleteMany({
+      where: { userId },
+    });
+
+    return tx.userRole.create({
+      data: {
         userId,
         roleId,
       },
-    },
-    create: {
-      userId,
-      roleId,
-    },
-    update: {},
+    });
   });
 }
 

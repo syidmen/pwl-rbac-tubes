@@ -44,6 +44,7 @@ type AppDialog =
 
 const CATEGORY_STORAGE_KEY = "pwl_inventory_categories";
 const ROOM_STORAGE_KEY = "pwl_inventory_rooms";
+const ROLE_DESCRIPTION_MAX_LENGTH = 120;
 
 const defaultCategories = [
   "Buku Pelajaran",
@@ -257,20 +258,9 @@ function assignedRoleKeys(users: unknown[]) {
   const keys = new Set<string>();
 
   users.forEach((userRow) => {
-    if (!userRow || typeof userRow !== "object") return;
-
-    const roles = (userRow as Record<string, unknown>).roles;
-    if (!Array.isArray(roles)) return;
-
-    roles.forEach((roleRow) => {
-      const role = roleRow && typeof roleRow === "object" && "role" in roleRow
-        ? (roleRow as Record<string, unknown>).role
-        : roleRow;
-
-      if (!role || typeof role !== "object") return;
-
+    userRoleRecords(userRow).forEach((role) => {
       ["id", "name", "nama", "code"].forEach((key) => {
-        const value = (role as Record<string, unknown>)[key];
+        const value = role[key];
         if (typeof value === "string" || typeof value === "number") {
           keys.add(String(value).toLowerCase());
         }
@@ -281,10 +271,59 @@ function assignedRoleKeys(users: unknown[]) {
   return keys;
 }
 
+function userRoleRecords(userRow: unknown) {
+  if (!userRow || typeof userRow !== "object") return [];
+
+  const roles = (userRow as Record<string, unknown>).roles;
+  if (!Array.isArray(roles)) return [];
+
+  return roles
+    .map((roleRow) => {
+      const role = roleRow && typeof roleRow === "object" && "role" in roleRow
+        ? (roleRow as Record<string, unknown>).role
+        : roleRow;
+
+      return role && typeof role === "object" ? role as Record<string, unknown> : null;
+    })
+    .filter((role): role is Record<string, unknown> => Boolean(role));
+}
+
+function userRoleLabel(userRow: unknown) {
+  const names = userRoleRecords(userRow)
+    .map((role) => String(role.name ?? role.nama ?? role.code ?? role.id ?? ""))
+    .filter(Boolean);
+
+  return names.length ? names.join(", ") : "belum ada role";
+}
+
+function userHasRole(userRow: unknown, roleName: string) {
+  const normalizedRoleName = roleName.toLowerCase();
+
+  return userRoleRecords(userRow).some((role) =>
+    String(role.name ?? role.nama ?? role.code ?? "").toLowerCase() === normalizedRoleName,
+  );
+}
+
+function roleRecordName(roleRow: unknown) {
+  if (!roleRow || typeof roleRow !== "object") return "";
+  const value = roleRow as Record<string, unknown>;
+  return String(value.name ?? value.nama ?? value.code ?? value.id ?? "").toLowerCase();
+}
+
 function recordName(record: unknown) {
   if (!record || typeof record !== "object") return "-";
   const value = record as Record<string, unknown>;
   return String(value.username ?? value.name ?? value.email ?? value.code ?? value.id ?? "-");
+}
+
+function roleDescription(record: unknown) {
+  if (!record || typeof record !== "object") return "";
+  const value = (record as Record<string, unknown>).description;
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function truncateText(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength).trimEnd()}...` : value;
 }
 
 function rolePermissionIds(role: unknown) {
@@ -327,6 +366,7 @@ export default function App() {
   const [appError, setAppError] = useState("");
   const [dialog, setDialog] = useState<AppDialog>(null);
   const [isDialogBusy, setIsDialogBusy] = useState(false);
+  const [confirmationLoadingText, setConfirmationLoadingText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -342,6 +382,7 @@ export default function App() {
   const [usersList, setUsersList] = useState<unknown[]>([]);
   const [rolesList, setRolesList] = useState<unknown[]>([]);
   const [permissionsList, setPermissionsList] = useState<unknown[]>([]);
+  const [expandedRoleDescriptions, setExpandedRoleDescriptions] = useState<string[]>([]);
   const [userForm, setUserForm] = useState(emptyUserForm);
   const [roleForm, setRoleForm] = useState(emptyRoleForm);
   const [profileForm, setProfileForm] = useState({ username: "", email: "", password: "" });
@@ -380,6 +421,14 @@ export default function App() {
       tone,
       onConfirm,
     });
+  }
+
+  function toggleRoleDescription(roleId: string) {
+    setExpandedRoleDescriptions((current) =>
+      current.includes(roleId)
+        ? current.filter((id) => id !== roleId)
+        : [...current, roleId],
+    );
   }
 
   async function loadDashboard() {
@@ -430,6 +479,17 @@ export default function App() {
   const currentUserId = activeUserId(user);
   const currentUserRoleKeys = activeUserRoleKeys(user);
   const usedRoleKeys = assignedRoleKeys(usersList);
+  const selectedUser = usersList.find((row) => recordId(row) === selectedUserId);
+  const selectedRole = rolesList.find((row) => recordId(row) === selectedRoleId);
+  const selectedPermissionRole = rolesList.find((row) => recordId(row) === selectedPermissionRoleId);
+  const isSelectedPermissionRoleAdmin = recordName(selectedPermissionRole).toLowerCase() === "admin";
+  const adminUsersCount = usersList.filter((row) => userHasRole(row, "admin")).length;
+  const isReplacingLastAdminRole = Boolean(
+    selectedUser
+      && userHasRole(selectedUser, "admin")
+      && roleRecordName(selectedRole) !== "admin"
+      && adminUsersCount <= 1,
+  );
   const permissions = getPermissionSet(user);
   const isAdminDashboard = activeRole === "admin";
   const canReadRbac = isAdminDashboard || permissions.has("rbac:read");
@@ -671,7 +731,12 @@ export default function App() {
       return;
     }
 
-    requestConfirmation("Assign role?", "Role terpilih akan diberikan ke user.", async () => {
+    if (isReplacingLastAdminRole) {
+      setAppError("Role admin terakhir tidak boleh diganti.");
+      return;
+    }
+
+    requestConfirmation("Assign role?", "Role user akan diganti dengan role terpilih.", async () => {
       try {
         await assignRoleToUser(selectedUserId, selectedRoleId);
         setSelectedUserId("");
@@ -690,6 +755,11 @@ export default function App() {
 
     if (!selectedPermissionRoleId) {
       setAppError("Pilih role terlebih dahulu.");
+      return;
+    }
+
+    if (isSelectedPermissionRoleAdmin) {
+      setAppError("Permission role ADMIN tidak boleh diubah.");
       return;
     }
 
@@ -977,6 +1047,7 @@ export default function App() {
     if (!dialog || dialog.variant !== "confirm") return;
 
     setIsDialogBusy(true);
+    setConfirmationLoadingText(dialog.confirmText);
     try {
       const action = dialog.onConfirm;
       setDialog(null);
@@ -984,6 +1055,7 @@ export default function App() {
     } catch (error) {
       setAppError(errorText(error));
     } finally {
+      setConfirmationLoadingText("");
       setIsDialogBusy(false);
     }
   }
@@ -1121,6 +1193,16 @@ export default function App() {
               )}
             </div>
           </section>
+        </div>
+      ) : null}
+
+      {confirmationLoadingText ? (
+        <div className="loading-backdrop" role="status" aria-live="polite">
+          <div className="loading-panel">
+            <span className="loading-spinner" aria-hidden="true" />
+            <strong>Memproses...</strong>
+            <small>{confirmationLoadingText}</small>
+          </div>
         </div>
       ) : null}
 
@@ -1286,6 +1368,7 @@ export default function App() {
               <input
                 onChange={(event) => setRoleForm((current) => ({ ...current, description: event.target.value }))}
                 placeholder="Deskripsi"
+                maxLength={ROLE_DESCRIPTION_MAX_LENGTH}
                 value={roleForm.description}
               />
               <button type="submit">Tambah Role</button>
@@ -1323,23 +1406,43 @@ export default function App() {
                 {rolesList.map((row) => {
                   const id = recordId(row);
                   const roleName = recordName(row).toLowerCase();
+                  const description = roleDescription(row);
+                  const isDescriptionOpen = expandedRoleDescriptions.includes(id);
                   const isProtectedRole = roleName === "admin";
                   const isCurrentUserRole = currentUserRoleKeys.has(id.toLowerCase()) || currentUserRoleKeys.has(roleName);
                   const isUsedRole = usedRoleKeys.has(id.toLowerCase()) || usedRoleKeys.has(roleName);
                   return id ? (
-                    <div className="management-row" key={id}>
-                      <span>{recordName(row)}</span>
-                      {!isProtectedRole && !isCurrentUserRole && !isUsedRole && (
-                        <button
-                          aria-label={`Hapus ${recordName(row)}`}
-                          className="danger-outline compact-button icon-action"
-                          onClick={() => void handleDeleteRole(id)}
-                          title="Hapus"
-                          type="button"
-                        >
-                          <span className="icon-trash" aria-hidden="true" />
-                        </button>
-                      )}
+                    <div className="management-item" key={id}>
+                      <div className="management-row">
+                        <span>{recordName(row)}</span>
+                        <div className="management-actions">
+                          {description ? (
+                            <button
+                              aria-label={`${isDescriptionOpen ? "Tutup" : "Lihat"} deskripsi ${recordName(row)}`}
+                              className="secondary compact-button icon-action"
+                              onClick={() => toggleRoleDescription(id)}
+                              title={isDescriptionOpen ? "Tutup deskripsi" : "Lihat deskripsi"}
+                              type="button"
+                            >
+                              <span className={isDescriptionOpen ? "icon-chevron-up" : "icon-chevron-down"} aria-hidden="true" />
+                            </button>
+                          ) : null}
+                          {!isProtectedRole && !isCurrentUserRole && !isUsedRole && (
+                            <button
+                              aria-label={`Hapus ${recordName(row)}`}
+                              className="danger-outline compact-button icon-action"
+                              onClick={() => void handleDeleteRole(id)}
+                              title="Hapus"
+                              type="button"
+                            >
+                              <span className="icon-trash" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {isDescriptionOpen && description ? (
+                        <p className="role-description">{truncateText(description, ROLE_DESCRIPTION_MAX_LENGTH)}</p>
+                      ) : null}
                     </div>
                   ) : null;
                 })}
@@ -1361,6 +1464,14 @@ export default function App() {
                   ) : null;
                 })}
               </select>
+              {selectedUser ? (
+                <p className="assign-role-hint">
+                  {recordName(selectedUser)} <span>{userRoleLabel(selectedUser)}</span>
+                </p>
+              ) : null}
+              {isReplacingLastAdminRole ? (
+                <div className="notice">Role admin terakhir tidak boleh diganti.</div>
+              ) : null}
               <select onChange={(event) => setSelectedRoleId(event.target.value)} required value={selectedRoleId}>
                 <option value="">Pilih role</option>
                 {rolesList.map((row) => {
@@ -1372,7 +1483,7 @@ export default function App() {
                   ) : null;
                 })}
               </select>
-              <button type="submit">Assign Role</button>
+              <button disabled={isReplacingLastAdminRole} type="submit">Assign Role</button>
             </form>
 
             <form className="rbac-form" onSubmit={handleAssignPermission}>
@@ -1397,31 +1508,37 @@ export default function App() {
                   ) : null;
                 })}
               </select>
-              <div className="permission-checklist">
-                {permissionsList.map((row) => {
-                  const id = recordId(row);
-                  if (!id) return null;
+              {isSelectedPermissionRoleAdmin ? (
+                <div className="notice">Permission role ADMIN dikunci agar akses admin tetap lengkap.</div>
+              ) : (
+                <>
+                  <div className="permission-checklist">
+                    {permissionsList.map((row) => {
+                      const id = recordId(row);
+                      if (!id) return null;
 
-                  return (
-                    <label className="check-row" key={id}>
-                      <input
-                        checked={selectedPermissionIds.includes(id)}
-                        onChange={(event) =>
-                          setSelectedPermissionIds((current) =>
-                            event.target.checked
-                              ? [...current, id]
-                              : current.filter((permissionId) => permissionId !== id),
-                          )
-                        }
-                        type="checkbox"
-                      />
-                      <span>{recordName(row)}</span>
-                    </label>
-                  );
-                })}
-              </div>
-              <small className="field-help">Checklist yang dimatikan akan menghapus permission dari role saat disimpan.</small>
-              <button type="submit">Simpan Permission</button>
+                      return (
+                        <label className="check-row" key={id}>
+                          <input
+                            checked={selectedPermissionIds.includes(id)}
+                            onChange={(event) =>
+                              setSelectedPermissionIds((current) =>
+                                event.target.checked
+                                  ? [...current, id]
+                                  : current.filter((permissionId) => permissionId !== id),
+                              )
+                            }
+                            type="checkbox"
+                          />
+                          <span>{recordName(row)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <small className="field-help">Checklist yang dimatikan akan menghapus permission dari role saat disimpan.</small>
+                  <button type="submit">Simpan Permission</button>
+                </>
+              )}
             </form>
           </div>
         </section>

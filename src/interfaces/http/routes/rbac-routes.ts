@@ -80,7 +80,30 @@ export const rbacRoutes: RbacRoute[] = [
   }),
   route("POST", /^\/users\/(?<id>[^/]+)\/roles$/, async (request, params) => {
     const body = await readBody(request);
-    return json(await assignRoleToUser(param(params, "id"), requiredString(body, "roleId")), 201);
+    const targetUserId = param(params, "id");
+    const targetRoleId = requiredString(body, "roleId");
+    const targetUser = await getUserById(targetUserId);
+    const targetRole = await getRoleById(targetRoleId);
+
+    if (!targetUser) {
+      throw new NotFoundError("User tidak ditemukan");
+    }
+
+    if (!targetRole) {
+      throw new NotFoundError("Role tidak ditemukan");
+    }
+
+    const currentAdminRole = targetUser.roles.find((userRole) => userRole.role.name.toLowerCase() === "admin")?.role;
+
+    if (currentAdminRole && targetRole.name.toLowerCase() !== "admin") {
+      const adminCount = await countUsersByRole(currentAdminRole.id);
+
+      if (adminCount <= 1) {
+        throw new BadRequestError("Role admin terakhir tidak boleh diganti");
+      }
+    }
+
+    return json(await assignRoleToUser(targetUserId, targetRoleId), 201);
   }),
   route("DELETE", /^\/users\/(?<userId>[^/]+)\/roles\/(?<roleId>[^/]+)$/, async (_request, params) => {
     await removeRoleFromUser(param(params, "userId"), param(params, "roleId"));
@@ -150,10 +173,14 @@ export const rbacRoutes: RbacRoute[] = [
   }),
   route("POST", /^\/roles\/(?<id>[^/]+)\/permissions$/, async (request, params) => {
     const body = await readBody(request);
-    return json(await assignPermissionToRole(param(params, "id"), requiredString(body, "permissionId")), 201);
+    const roleId = param(params, "id");
+    await ensureRolePermissionEditable(roleId);
+    return json(await assignPermissionToRole(roleId, requiredString(body, "permissionId")), 201);
   }),
   route("DELETE", /^\/roles\/(?<roleId>[^/]+)\/permissions\/(?<permissionId>[^/]+)$/, async (_request, params) => {
-    await removePermissionFromRole(param(params, "roleId"), param(params, "permissionId"));
+    const roleId = param(params, "roleId");
+    await ensureRolePermissionEditable(roleId);
+    await removePermissionFromRole(roleId, param(params, "permissionId"));
     return json({ message: "Permission role berhasil dihapus" });
   }),
 
@@ -201,6 +228,18 @@ function param(params: RouteParams, key: string): string {
   }
 
   return value;
+}
+
+async function ensureRolePermissionEditable(roleId: string) {
+  const role = await getRoleById(roleId);
+
+  if (!role) {
+    throw new NotFoundError("Role tidak ditemukan");
+  }
+
+  if (role.name.toLowerCase() === "admin") {
+    throw new BadRequestError("Permission role ADMIN tidak boleh diubah");
+  }
 }
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
