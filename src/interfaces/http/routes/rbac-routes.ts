@@ -1,6 +1,7 @@
 import {
   assignPermissionToRole,
   assignRoleToUser,
+  countUsersByRole,
   createPermission,
   createRole,
   createUser,
@@ -23,6 +24,8 @@ import {
   userHasPermission,
 } from "../../../application/services/rbac-service";
 import { json } from "../response";
+import { BadRequestError, NotFoundError } from "../errors";
+import type { AuthenticatedRequest } from "../middleware/auth-middleware";
 
 export type RouteParams = Record<string, string>;
 
@@ -64,8 +67,15 @@ export const rbacRoutes: RbacRoute[] = [
       }),
     );
   }),
-  route("DELETE", /^\/users\/(?<id>[^/]+)$/, async (_request, params) => {
-    await deleteUser(param(params, "id"));
+  route("DELETE", /^\/users\/(?<id>[^/]+)$/, async (request, params) => {
+    const targetUserId = param(params, "id");
+    const currentUserId = (request as AuthenticatedRequest).user?.userId ?? (request as AuthenticatedRequest).user?.sub;
+
+    if (currentUserId === targetUserId) {
+      throw new BadRequestError("Admin tidak boleh menghapus akun sendiri");
+    }
+
+    await deleteUser(targetUserId);
     return json({ message: "User berhasil dihapus" });
   }),
   route("POST", /^\/users\/(?<id>[^/]+)\/roles$/, async (request, params) => {
@@ -109,8 +119,33 @@ export const rbacRoutes: RbacRoute[] = [
       }),
     );
   }),
-  route("DELETE", /^\/roles\/(?<id>[^/]+)$/, async (_request, params) => {
-    await deleteRole(param(params, "id"));
+  route("DELETE", /^\/roles\/(?<id>[^/]+)$/, async (request, params) => {
+    const targetRoleId = param(params, "id");
+    const currentUserId = (request as AuthenticatedRequest).user?.userId ?? (request as AuthenticatedRequest).user?.sub;
+    const targetRole = await getRoleById(targetRoleId);
+
+    if (!targetRole) {
+      throw new NotFoundError("Role tidak ditemukan");
+    }
+
+    if (targetRole.name.toLowerCase() === "admin") {
+      throw new BadRequestError("Role ADMIN tidak boleh dihapus");
+    }
+
+    const currentUser = currentUserId ? await getUserById(currentUserId) : null;
+    const isCurrentUserRole = currentUser?.roles.some((userRole) => userRole.role.id === targetRoleId);
+
+    if (isCurrentUserRole) {
+      throw new BadRequestError("Admin tidak boleh menghapus role yang sedang dipakai sendiri");
+    }
+
+    const usersUsingRole = await countUsersByRole(targetRoleId);
+
+    if (usersUsingRole > 0) {
+      throw new BadRequestError("Role masih dipakai user dan tidak boleh dihapus");
+    }
+
+    await deleteRole(targetRoleId);
     return json({ message: "Role berhasil dihapus" });
   }),
   route("POST", /^\/roles\/(?<id>[^/]+)\/permissions$/, async (request, params) => {

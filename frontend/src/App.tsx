@@ -225,6 +225,62 @@ function recordId(record: unknown) {
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
 }
 
+function activeUserId(user: ActiveUser | null) {
+  if (!user) return "";
+  const value = user.id ?? user.userId ?? user.sub;
+  return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+function activeUserRoleKeys(user: ActiveUser | null) {
+  const keys = new Set<string>();
+
+  user?.roles?.forEach((role) => {
+    if (typeof role === "string") {
+      keys.add(role.toLowerCase());
+      return;
+    }
+
+    if (role && typeof role === "object") {
+      ["id", "name", "nama", "code"].forEach((key) => {
+        const value = role[key];
+        if (typeof value === "string" || typeof value === "number") {
+          keys.add(String(value).toLowerCase());
+        }
+      });
+    }
+  });
+
+  return keys;
+}
+
+function assignedRoleKeys(users: unknown[]) {
+  const keys = new Set<string>();
+
+  users.forEach((userRow) => {
+    if (!userRow || typeof userRow !== "object") return;
+
+    const roles = (userRow as Record<string, unknown>).roles;
+    if (!Array.isArray(roles)) return;
+
+    roles.forEach((roleRow) => {
+      const role = roleRow && typeof roleRow === "object" && "role" in roleRow
+        ? (roleRow as Record<string, unknown>).role
+        : roleRow;
+
+      if (!role || typeof role !== "object") return;
+
+      ["id", "name", "nama", "code"].forEach((key) => {
+        const value = (role as Record<string, unknown>)[key];
+        if (typeof value === "string" || typeof value === "number") {
+          keys.add(String(value).toLowerCase());
+        }
+      });
+    });
+  });
+
+  return keys;
+}
+
 function recordName(record: unknown) {
   if (!record || typeof record !== "object") return "-";
   const value = record as Record<string, unknown>;
@@ -371,6 +427,9 @@ export default function App() {
   }, [user]);
 
   const activeRole = getRoleName(user);
+  const currentUserId = activeUserId(user);
+  const currentUserRoleKeys = activeUserRoleKeys(user);
+  const usedRoleKeys = assignedRoleKeys(usersList);
   const permissions = getPermissionSet(user);
   const isAdminDashboard = activeRole === "admin";
   const canReadRbac = isAdminDashboard || permissions.has("rbac:read");
@@ -1237,18 +1296,21 @@ export default function App() {
               <div className="management-list">
                 {usersList.map((row) => {
                   const id = recordId(row);
+                  const isCurrentUser = id === currentUserId;
                   return id ? (
                     <div className="management-row" key={id}>
                       <span>{recordName(row)}</span>
-                      <button
-                        aria-label={`Hapus ${recordName(row)}`}
-                        className="danger-outline compact-button icon-action"
-                        onClick={() => void handleDeleteUser(id)}
-                        title="Hapus"
-                        type="button"
-                      >
-                        <span className="icon-trash" aria-hidden="true" />
-                      </button>
+                      {!isCurrentUser && (
+                        <button
+                          aria-label={`Hapus ${recordName(row)}`}
+                          className="danger-outline compact-button icon-action"
+                          onClick={() => void handleDeleteUser(id)}
+                          title="Hapus"
+                          type="button"
+                        >
+                          <span className="icon-trash" aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
                   ) : null;
                 })}
@@ -1260,18 +1322,24 @@ export default function App() {
               <div className="management-list">
                 {rolesList.map((row) => {
                   const id = recordId(row);
+                  const roleName = recordName(row).toLowerCase();
+                  const isProtectedRole = roleName === "admin";
+                  const isCurrentUserRole = currentUserRoleKeys.has(id.toLowerCase()) || currentUserRoleKeys.has(roleName);
+                  const isUsedRole = usedRoleKeys.has(id.toLowerCase()) || usedRoleKeys.has(roleName);
                   return id ? (
                     <div className="management-row" key={id}>
                       <span>{recordName(row)}</span>
-                      <button
-                        aria-label={`Hapus ${recordName(row)}`}
-                        className="danger-outline compact-button icon-action"
-                        onClick={() => void handleDeleteRole(id)}
-                        title="Hapus"
-                        type="button"
-                      >
-                        <span className="icon-trash" aria-hidden="true" />
-                      </button>
+                      {!isProtectedRole && !isCurrentUserRole && !isUsedRole && (
+                        <button
+                          aria-label={`Hapus ${recordName(row)}`}
+                          className="danger-outline compact-button icon-action"
+                          onClick={() => void handleDeleteRole(id)}
+                          title="Hapus"
+                          type="button"
+                        >
+                          <span className="icon-trash" aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
                   ) : null;
                 })}

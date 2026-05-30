@@ -173,6 +173,12 @@ export function deleteRole(id: string) {
   return db.role.delete({ where: { id } });
 }
 
+export function countUsersByRole(roleId: string) {
+  return db.userRole.count({
+    where: { roleId },
+  });
+}
+
 export function listPermissions() {
   return db.permission.findMany({
     orderBy: { name: "asc" },
