@@ -4,7 +4,7 @@ Sistem Informasi Inventaris Barang Sekolah SMA berbasis web untuk UAS Pemrograma
 
 Link Laporan    : https://drive.google.com/file/d/1vRs15cH3bi9Z6pb470KEocRu_DFKqJru/view?usp=sharing
 
-Link Frontend   : pwl-rbac-tubes.vercel.app
+Link Frontend   : https://pwl-rbac-tubes.vercel.app
 
 Link Backend    : https://pwl-rbac-tubes.onrender.com
 
