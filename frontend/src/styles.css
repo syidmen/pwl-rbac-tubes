@@ -635,10 +635,25 @@ h2 {
 
 .admin-toggle-row {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 18px;
+}
+
+.access-note,
+.restriction-label {
+  color: #516987;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.access-note {
+  border: 1px solid rgba(128, 154, 190, 0.18);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.64);
 }
 
 .rbac-grid {
@@ -758,6 +773,11 @@ h2 {
   width: 34px;
   min-width: 34px;
   min-height: 34px;
+}
+
+.locked-action {
+  opacity: 0.48;
+  filter: grayscale(0.25);
 }
 
 .icon-pencil,
