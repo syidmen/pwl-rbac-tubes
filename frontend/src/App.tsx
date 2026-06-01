@@ -1307,20 +1307,29 @@ export default function App() {
         </form>
       </section>
 
-      {canReadRbac ? (
-        <div className="admin-toggle-row">
-          <button className="secondary" onClick={() => setIsRbacOpen((current) => !current)} type="button">
-            {isRbacOpen ? "Sembunyikan RBAC" : "Manajemen RBAC"}
-          </button>
-          <button
-            className="secondary"
-            onClick={() => setIsAssetSettingsOpen((current) => !current)}
-            type="button"
-          >
-            {isAssetSettingsOpen ? "Sembunyikan Pengaturan" : "Kategori dan Ruangan"}
-          </button>
-        </div>
-      ) : null}
+      <div className="admin-toggle-row">
+        <button
+          className="secondary"
+          disabled={!canReadRbac}
+          onClick={() => setIsRbacOpen((current) => !current)}
+          title={canReadRbac ? "Buka manajemen RBAC" : "Hanya role ADMIN yang dapat mengakses fitur ini"}
+          type="button"
+        >
+          {isRbacOpen ? "Sembunyikan RBAC" : "Manajemen RBAC"}
+        </button>
+        <button
+          className="secondary"
+          disabled={!canReadRbac}
+          onClick={() => setIsAssetSettingsOpen((current) => !current)}
+          title={canReadRbac ? "Buka pengaturan inventaris" : "Hanya role ADMIN yang dapat mengakses fitur ini"}
+          type="button"
+        >
+          {isAssetSettingsOpen ? "Sembunyikan Pengaturan" : "Kategori dan Ruangan"}
+        </button>
+        {!canReadRbac ? (
+          <span className="access-note">Akses administrasi terkunci untuk role USER.</span>
+        ) : null}
+      </div>
 
       {canReadRbac && isRbacOpen ? (
         <section className="rbac-panel">
@@ -1383,12 +1392,22 @@ export default function App() {
                   return id ? (
                     <div className="management-row" key={id}>
                       <span>{recordName(row)}</span>
-                      {!isCurrentUser && (
+                      {!isCurrentUser ? (
                         <button
                           aria-label={`Hapus ${recordName(row)}`}
                           className="danger-outline compact-button icon-action"
                           onClick={() => void handleDeleteUser(id)}
                           title="Hapus"
+                          type="button"
+                        >
+                          <span className="icon-trash" aria-hidden="true" />
+                        </button>
+                      ) : (
+                        <button
+                          aria-label="Hapus akun sendiri terkunci"
+                          className="danger-outline compact-button icon-action locked-action"
+                          disabled
+                          title="Admin tidak boleh menghapus akun sendiri"
                           type="button"
                         >
                           <span className="icon-trash" aria-hidden="true" />
@@ -1427,7 +1446,7 @@ export default function App() {
                               <span className={isDescriptionOpen ? "icon-chevron-up" : "icon-chevron-down"} aria-hidden="true" />
                             </button>
                           ) : null}
-                          {!isProtectedRole && !isCurrentUserRole && !isUsedRole && (
+                          {!isProtectedRole && !isCurrentUserRole && !isUsedRole ? (
                             <button
                               aria-label={`Hapus ${recordName(row)}`}
                               className="danger-outline compact-button icon-action"
@@ -1437,9 +1456,34 @@ export default function App() {
                             >
                               <span className="icon-trash" aria-hidden="true" />
                             </button>
+                          ) : (
+                            <button
+                              aria-label={`Hapus ${recordName(row)} terkunci`}
+                              className="danger-outline compact-button icon-action locked-action"
+                              disabled
+                              title={
+                                isProtectedRole
+                                  ? "Role ADMIN tidak boleh dihapus"
+                                  : isCurrentUserRole
+                                    ? "Admin tidak boleh menghapus role yang sedang dipakai sendiri"
+                                    : "Role masih digunakan oleh user"
+                              }
+                              type="button"
+                            >
+                              <span className="icon-trash" aria-hidden="true" />
+                            </button>
                           )}
                         </div>
                       </div>
+                      {isProtectedRole || isCurrentUserRole || isUsedRole ? (
+                        <small className="restriction-label">
+                          {isProtectedRole
+                            ? "Role ADMIN dilindungi"
+                            : isCurrentUserRole
+                              ? "Role sedang dipakai admin aktif"
+                              : "Role masih digunakan pengguna"}
+                        </small>
+                      ) : null}
                       {isDescriptionOpen && description ? (
                         <p className="role-description">{truncateText(description, ROLE_DESCRIPTION_MAX_LENGTH)}</p>
                       ) : null}
@@ -1814,7 +1858,16 @@ export default function App() {
               <button className="secondary" onClick={handleCreate} type="button">
                 Tambah
               </button>
-            ) : null}
+            ) : (
+              <button
+                className="secondary"
+                disabled
+                title="Role USER tidak memiliki permission item:create"
+                type="button"
+              >
+                Tambah Terkunci
+              </button>
+            )}
             {canDeleteItem && selectedItemIds.length ? (
               <button className="danger-outline" onClick={() => void handleBulkDelete()} type="button">
                 Hapus Terpilih ({selectedItemIds.length})
@@ -1928,7 +1981,7 @@ export default function App() {
                   <th>Kondisi</th>
                   <th>Status</th>
                   <th>Keterangan</th>
-                  {canManageItems ? <th>Aksi</th> : null}
+                  <th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -1954,39 +2007,60 @@ export default function App() {
                       <td>{readField(item, ["condition", "kondisi"])}</td>
                       <td>{readField(item, ["status"])}</td>
                       <td>{readField(item, ["description", "deskripsi"], "-")}</td>
-                      {canManageItems ? (
-                        <td>
-                          <div className="table-actions">
-                            {canUpdateItem ? (
-                              <button
-                                aria-label={`Edit ${readField(item, ["name", "nama", "itemName"], "item")}`}
-                                className="icon-action secondary"
-                                onClick={() => handleEdit(item)}
-                                title="Edit"
-                                type="button"
-                              >
-                                <span className="icon-pencil" aria-hidden="true" />
-                              </button>
-                            ) : null}
-                            {canDeleteItem ? (
-                              <button
-                                aria-label={`Hapus ${readField(item, ["name", "nama", "itemName"], "item")}`}
-                                className="icon-action danger"
-                                onClick={() => handleDelete(item)}
-                                title="Hapus"
-                                type="button"
-                              >
-                                <span className="icon-trash" aria-hidden="true" />
-                              </button>
-                            ) : null}
-                          </div>
-                        </td>
-                      ) : null}
+                      <td>
+                        <div className="table-actions">
+                          {canUpdateItem ? (
+                            <button
+                              aria-label={`Edit ${readField(item, ["name", "nama", "itemName"], "item")}`}
+                              className="icon-action secondary"
+                              onClick={() => handleEdit(item)}
+                              title="Edit"
+                              type="button"
+                            >
+                              <span className="icon-pencil" aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <button
+                              aria-label="Edit terkunci"
+                              className="icon-action secondary locked-action"
+                              disabled
+                              title="Role USER tidak memiliki permission item:update"
+                              type="button"
+                            >
+                              <span className="icon-pencil" aria-hidden="true" />
+                            </button>
+                          )}
+                          {canDeleteItem ? (
+                            <button
+                              aria-label={`Hapus ${readField(item, ["name", "nama", "itemName"], "item")}`}
+                              className="icon-action danger"
+                              onClick={() => handleDelete(item)}
+                              title="Hapus"
+                              type="button"
+                            >
+                              <span className="icon-trash" aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <button
+                              aria-label="Hapus terkunci"
+                              className="icon-action danger-outline locked-action"
+                              disabled
+                              title="Role USER tidak memiliki permission item:delete"
+                              type="button"
+                            >
+                              <span className="icon-trash" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                        {!canManageItems ? (
+                          <small className="restriction-label">Read-only</small>
+                        ) : null}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td className="empty" colSpan={(canManageItems ? 8 : 7) + (canDeleteItem ? 1 : 0)}>
+                    <td className="empty" colSpan={8 + (canDeleteItem ? 1 : 0)}>
                       Tidak ada data inventaris yang cocok.
                     </td>
                   </tr>
