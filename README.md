@@ -2,6 +2,12 @@
 
 Sistem Informasi Inventaris Barang Sekolah SMA berbasis web untuk UAS Pemrograman Web Lanjut. Aplikasi ini menggunakan React + Vite untuk frontend, Bun REST API untuk backend, Prisma untuk database, JWT untuk autentikasi, dan RBAC untuk pembatasan hak akses.
 
+Link Laporan    : https://drive.google.com/file/d/1vRs15cH3bi9Z6pb470KEocRu_DFKqJru/view?usp=sharing
+
+Link Frontend   : pwl-rbac-tubes.vercel.app
+
+Link Backend    : https://pwl-rbac-tubes.onrender.com
+
 ## Struktur Proyek
 
 ```text
